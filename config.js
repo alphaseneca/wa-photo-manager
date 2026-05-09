@@ -29,9 +29,9 @@ module.exports = {
         authTimeout: 120,                        // QR code scan timeout (seconds)
         qrTimeout: 120,                          // QR code generation timeout (seconds)
         multiDevice: true,                       // Enable WhatsApp multi-device support
-        headless: true,                          // Run browser in background (true) or visible (false)
+        headless: true,                          // Run browser in background (set false to debug or re-scan QR)
         deleteSessionDataOnLogout: true,         // Auto-cleanup session data on logout
-        // sessionData: "NUKE"                   // Uncomment to force new session creation
+        waitForRipeSession: true,                // Wait for session to be fully ready before injection
     },
 
     // ========================================

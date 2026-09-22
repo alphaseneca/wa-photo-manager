@@ -4,19 +4,49 @@
 // Professional photo management system for WhatsApp
 // Edit this file to customize your bot settings
 
-module.exports = {
+const fs = require('fs');
+const path = require('path');
+
+// Helper to find Google Chrome bundled inside the local 'chrome' folder
+function findBundledBrowser() {
+    const chromeDir = path.join(process.cwd(), 'chrome');
+    if (!fs.existsSync(chromeDir)) return undefined;
+
+    // Recursively search for chrome.exe
+    const searchForChrome = (dir) => {
+        try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                const stat = fs.statSync(fullPath);
+                if (stat.isDirectory()) {
+                    const found = searchForChrome(fullPath);
+                    if (found) return found;
+                } else if (file.toLowerCase() === 'chrome.exe') {
+                    return fullPath;
+                }
+            }
+        } catch (e) {
+            // Ignore directory read errors
+        }
+        return null;
+    };
+    
+    return searchForChrome(chromeDir) || undefined;
+}
+
+const defaultConfig = {
     // ========================================
     // AUTHORIZED PHONE NUMBERS
     // ========================================
     // Define which phone numbers are allowed to use this service
     // Format: Number only, without + or country code prefix
-    // Examples: '9779867936480', '1234567890', '919876543210'
+    // Examples: '1234567890', '9779800000000', '919876543210'
     
     ALLOWED_NUMBERS: [
-        '9779867936480',  // Primary authorized number
-        // Add additional authorized numbers below:
+        // ⬇️ ADD YOUR AUTHORIZED PHONE NUMBERS HERE ⬇️
         // '1234567890',
-        // '9876543210',
+        // '9779800000000',
     ],
 
     // ========================================
@@ -91,7 +121,7 @@ Please follow the correct workflow:
 **Step 1:** Send phone number (7-15 digits)
 **Step 2:** Select category (1-N)
 
-📝 Example: First send "9779867936480", then send "2"`,
+📝 Example: First send "1234567890", then send "2"`,
 
         // Folder Activation Success
         folderCreated: 
@@ -161,7 +191,7 @@ Please try:
 
 **Step 1:** Send Phone Number
    • Format: 7-15 digits
-   • Example: 9779867936480
+   • Example: 1234567890
 
 **Step 2:** Select Category
    1️⃣ 4x6 Size Photo
@@ -189,6 +219,57 @@ Need help? Contact administrator.`,
     }
 };
 
+// Start with default configuration
+let config = { ...defaultConfig };
+
+// Add the bundled browser if found
+const bundledChrome = findBundledBrowser();
+if (bundledChrome) {
+    config.BOT_CONFIG.executablePath = bundledChrome;
+    console.log(`[+] Using bundled Chrome browser: ${bundledChrome}`);
+}
+
+// Load overrides from config.json if exists in current working directory
+const jsonConfigPath = path.join(process.cwd(), 'config.json');
+if (fs.existsSync(jsonConfigPath)) {
+    try {
+        const fileContent = fs.readFileSync(jsonConfigPath, 'utf8');
+        const overrides = JSON.parse(fileContent);
+        
+        if (overrides.ALLOWED_NUMBERS) {
+            config.ALLOWED_NUMBERS = overrides.ALLOWED_NUMBERS;
+        }
+        if (overrides.PHOTO_CATEGORIES) {
+            config.PHOTO_CATEGORIES = overrides.PHOTO_CATEGORIES;
+        }
+        if (overrides.FOLDER_SETTINGS) {
+            config.FOLDER_SETTINGS = {
+                ...config.FOLDER_SETTINGS,
+                ...overrides.FOLDER_SETTINGS
+            };
+        }
+        if (overrides.BOT_CONFIG) {
+            config.BOT_CONFIG = {
+                ...config.BOT_CONFIG,
+                ...overrides.BOT_CONFIG
+            };
+        }
+        
+        // Respect explicit executablePath overrides in JSON, else use bundled
+        if (overrides.BOT_CONFIG && overrides.BOT_CONFIG.executablePath) {
+            config.BOT_CONFIG.executablePath = overrides.BOT_CONFIG.executablePath;
+        } else if (bundledChrome) {
+            config.BOT_CONFIG.executablePath = bundledChrome;
+        }
+        
+        console.log(`[+] Loaded configuration overrides from ${jsonConfigPath}`);
+    } catch (e) {
+        console.error(`[!] Failed to parse config.json: ${e.message}`);
+    }
+}
+
+module.exports = config;
+
 // ========================================
 // CONFIGURATION GUIDE
 // ========================================
@@ -200,7 +281,7 @@ Need help? Contact administrator.`,
 1. AUTHORIZED NUMBERS
    ├─ Add phone numbers to ALLOWED_NUMBERS array
    ├─ Format: Just digits, no + or country code
-   ├─ Example: '9779867936480' (Nepal)
+   ├─ Example: '9779800000000' (Nepal)
    ├─ Example: '1234567890' (US)
    └─ Example: '919876543210' (India)
 
@@ -221,26 +302,26 @@ Need help? Contact administrator.`,
    
    downloads/
    ├── 4x6 Size Photo/
-   │   ├── 9779867936480/
-   │   │   ├── 1234567890.jpg (Photo #1)
-   │   │   ├── 1234567891.jpg (Photo #2)
-   │   │   └── 1234567892.jpg (Photo #3)
-   │   └── 1234567890/
+   │   ├── 1234567890/
+   │   │   ├── 1715234567890.jpg (Photo #1)
+   │   │   ├── 1715234567891.jpg (Photo #2)
+   │   │   └── 1715234567892.jpg (Photo #3)
+   │   └── 9876543210/
    ├── A4 Photo Frame/
-   │   └── 9779867936480/
+   │   └── 1234567890/
    ├── Polaroid Photo/
    │   └── 9876543210/
    └── 18x24 Banner/
        └── 5551234567/
 
 5. USER WORKFLOW EXAMPLE
-   Step 1: User sends → 9779867936480
+   Step 1: User sends → 1234567890
    Step 2: Bot shows categories with numbers
    Step 3: User sends → 2 (selects A4 Photo Frame)
    Step 4: Bot confirms folder creation
    Step 5: User sends photos
    Result: Photos saved as:
-           downloads/A4 Photo Frame/9779867936480/[timestamp].jpg
+           downloads/A4 Photo Frame/1234567890/[timestamp].jpg
            Each photo numbered: "Photo #1 saved", "Photo #2 saved", etc.
 
 6. SUPPORTED FORMATS

@@ -2,36 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] - 2026-05-09
+## [1.0.0] - 2026-09-22
 
-### Fixed
-- **WhatsApp Web Compatibility**: Fixed critical startup failure caused by WhatsApp Web rejecting the browser as "unsupported"
-  - **Root Cause**: `@open-wa/wa-automate` hardcodes a user agent string with a `WhatsApp/` prefix and `Chrome/104.0.0.0`. WhatsApp Web now rejects this combination and serves a "browser not supported" error page instead of loading the app. Since the app never loads, `window.Debug` (which the library waits for) never becomes available, causing a `TimeoutError: Waiting failed: 30000ms exceeded` crash.
-  - **Fix**: Added a `postinstall` script (`scripts/postinstall.js`) that patches the user agent in `@open-wa/wa-automate` to use a clean, modern Chrome UA string without the `WhatsApp/` prefix. This patch auto-applies on every `npm install`.
+### Initial Release
 
-### Changed
-- **Upgraded Puppeteer**: Upgraded from `puppeteer@23.11.1` (Chromium 131) to `puppeteer@24.x` (Chromium 148+) via npm `overrides` to ensure a modern browser is always used
-- **Updated dev dependencies**:
-  - `@types/node`: `^18.7.6` → `^22.0.0`
-  - `typescript`: `^4.9.3` → `^5.7.0`
-  - `ts-node`: `^10.9.1` → `^10.9.2`
-  - `rimraf`: `^3.0.2` → `^6.0.0`
-  - Removed `pkg` (deprecated, no longer maintained)
-- **Node.js requirement**: Bumped minimum from Node.js 14 to Node.js 18
-
-### Added
-- `scripts/postinstall.js` — Automatic UA patch that survives `npm install`
-- `CHANGELOG.md` — This file
-- npm `overrides` in `package.json` to force `puppeteer` and `puppeteer-core` to v24
-
-## [1.0.0] - Initial Release
-
-### Features
-- WhatsApp Web integration via `@open-wa/wa-automate`
-- Phone number-based folder organization
-- Category system (4x6 Photo, A4 Frame, Polaroid, Banner)
-- Multi-media support (images, videos, documents)
-- HEIC/HEIF to JPG auto-conversion
-- Automatic photo counting per folder
-- Authorization system for allowed phone numbers
-- Configurable bot messages and responses
+#### Features
+- **WhatsApp Web Integration**: Connects to WhatsApp Web using modern Puppeteer (v24+) and an automated user-agent compatibility patch (`scripts/postinstall.js`).
+- **Windows System Tray GUI Launcher**:
+  - Background execution (`scripts/Launcher.cs` compiled into `whatsapp-photo-manager.exe`) without command window popups.
+  - Interactive system tray icon with start/stop, settings, log viewer, and folder shortcut.
+  - Live console logs viewer with real-time ANSI-color code stripping.
+  - Automatic QR code pairing popup dialog that displays when login is required and closes when paired.
+  - Settings dialog to edit authorized numbers, photo categories, and storage path without editing code.
+- **Zero-Dependency Windows Installer**:
+  - `scripts/build-package.ps1` bundles portable Node.js LTS v20 and standalone Chrome.
+  - `scripts/installer.iss` compiles a single setup installer executable (`WhatsAppPhotoManager-Installer-1.0.0-x64.exe`).
+- **Automated Media Organization**:
+  - Organizes incoming images, videos, and documents into `downloads/<Category>/<PhoneNumber>/`.
+  - Photo counting per folder with real-time feedback to users.
+- **Image Processing**:
+  - Automatic HEIC/HEIF conversion to JPEG via `heic-convert`.
+  - Image optimization and standardization using Sharp.
+- **Security & Authorization**:
+  - Whitelist authorization system for allowed sender phone numbers.
+  - Non-destructive configuration overrides supported via `config.json`.

@@ -6,7 +6,38 @@
 // Edit this file with your settings before running the app.
 //
 
-module.exports = {
+const fs = require('fs');
+const path = require('path');
+
+// Helper to find Google Chrome bundled inside the local 'chrome' folder
+function findBundledBrowser() {
+    const chromeDir = path.join(process.cwd(), 'chrome');
+    if (!fs.existsSync(chromeDir)) return undefined;
+
+    // Recursively search for chrome.exe
+    const searchForChrome = (dir) => {
+        try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                const stat = fs.statSync(fullPath);
+                if (stat.isDirectory()) {
+                    const found = searchForChrome(fullPath);
+                    if (found) return found;
+                } else if (file.toLowerCase() === 'chrome.exe') {
+                    return fullPath;
+                }
+            }
+        } catch (e) {
+            // Ignore directory read errors
+        }
+        return null;
+    };
+    
+    return searchForChrome(chromeDir) || undefined;
+}
+
+const defaultConfig = {
 	// ========================================
 	// AUTHORIZED PHONE NUMBERS ⚙️ REQUIRED
 	// ========================================
@@ -14,14 +45,14 @@ module.exports = {
 	// Format: Number only, without + or country code prefix
 	//
 	// Examples:
-	//   '9779867936480'  (Nepal)
 	//   '1234567890'     (USA)
+	//   '9779800000000'  (Nepal)
 	//   '919876543210'   (India)
 	//
 	ALLOWED_NUMBERS: [
 		// ⬇️ ADD YOUR NUMBERS HERE ⬇️
-		// '9779867936480',
 		// '1234567890',
+		// '9779800000000',
 		// '919876543210',
 	],
 
@@ -87,7 +118,7 @@ Please follow the correct workflow:
 **Step 1:** Send phone number (7-15 digits)
 **Step 2:** Select category (1-N)
 
-📝 Example: First send "9779867936480", then send "2"`,
+📝 Example: First send "1234567890", then send "2"`,
 
 		folderCreated: `✅ **Folder Activated Successfully**
 ━━━━━━━━━━━━━━━━━━━━━━━━
@@ -141,7 +172,7 @@ Please try:
 
 **Step 1:** Send Phone Number
    • Format: 7-15 digits
-   • Example: 9779867936480
+   • Example: 1234567890
 
 **Step 2:** Select Category
 {options}
@@ -166,24 +197,75 @@ Need help? Contact administrator.`,
 	},
 };
 
+// Start with default configuration
+let config = { ...defaultConfig };
+
+// Add the bundled browser if found
+const bundledChrome = findBundledBrowser();
+if (bundledChrome) {
+    config.BOT_CONFIG.executablePath = bundledChrome;
+    console.log(`[+] Using bundled Chrome browser: ${bundledChrome}`);
+}
+
+// Load overrides from config.json if exists in current working directory
+const jsonConfigPath = path.join(process.cwd(), 'config.json');
+if (fs.existsSync(jsonConfigPath)) {
+    try {
+        const fileContent = fs.readFileSync(jsonConfigPath, 'utf8');
+        const overrides = JSON.parse(fileContent);
+        
+        if (overrides.ALLOWED_NUMBERS) {
+            config.ALLOWED_NUMBERS = overrides.ALLOWED_NUMBERS;
+        }
+        if (overrides.PHOTO_CATEGORIES) {
+            config.PHOTO_CATEGORIES = overrides.PHOTO_CATEGORIES;
+        }
+        if (overrides.FOLDER_SETTINGS) {
+            config.FOLDER_SETTINGS = {
+                ...config.FOLDER_SETTINGS,
+                ...overrides.FOLDER_SETTINGS
+            };
+        }
+        if (overrides.BOT_CONFIG) {
+            config.BOT_CONFIG = {
+                ...config.BOT_CONFIG,
+                ...overrides.BOT_CONFIG
+            };
+        }
+        
+        // Respect explicit executablePath overrides in JSON, else use bundled
+        if (overrides.BOT_CONFIG && overrides.BOT_CONFIG.executablePath) {
+            config.BOT_CONFIG.executablePath = overrides.BOT_CONFIG.executablePath;
+        } else if (bundledChrome) {
+            config.BOT_CONFIG.executablePath = bundledChrome;
+        }
+        
+        console.log(`[+] Loaded configuration overrides from ${jsonConfigPath}`);
+    } catch (e) {
+        console.error(`[!] Failed to parse config.json: ${e.message}`);
+    }
+}
+
+module.exports = config;
+
 // ========================================
 // QUICK SETUP GUIDE
 // ========================================
 /*
 
 1️⃣ EDIT ALLOWED_NUMBERS
-   ├─ Find the ALLOWED_NUMBERS array (around line 20)
+   ├─ Find the ALLOWED_NUMBERS array (around line 40)
    ├─ Add your authorized phone numbers
-   ├─ Format: Just digits (e.g., '9779867936480')
+   ├─ Format: Just digits (e.g., '1234567890')
    ├─ You can add multiple numbers
    └─ Example:
       ALLOWED_NUMBERS: [
-          '9779867936480',  // Your number
-          '1234567890',     // A friend's number
+          '1234567890',     // Primary number
+          '9876543210',     // Secondary number
       ],
 
 2️⃣ (OPTIONAL) CUSTOMIZE CATEGORIES
-   ├─ Find PHOTO_CATEGORIES (around line 50)
+   ├─ Find PHOTO_CATEGORIES
    ├─ Edit the category names to your preference
    └─ Example:
       PHOTO_CATEGORIES: [
@@ -193,13 +275,13 @@ Need help? Contact administrator.`,
       ],
 
 3️⃣ (OPTIONAL) CUSTOMIZE MESSAGES
-   ├─ Find the MESSAGES object (around line 65)
+   ├─ Find the MESSAGES object
    ├─ Edit any messages you want to customize
    └─ Keep {variables} intact
 
 4️⃣ SAVE & RUN
-   ├─ Save this file (Ctrl+S or Cmd+S)
-   ├─ Run the app: double-click run-app.bat (Windows) or ./photo-manager (Mac/Linux)
+   ├─ Save this file as config.js
+   ├─ Run the app: double-click whatsapp-photo-manager.exe or npm start
    └─ Scan the QR code on your phone
 
 5️⃣ DONE! 🎉
@@ -214,8 +296,8 @@ HELP & TROUBLESHOOTING
 Q: The app won't start
 A: Make sure:
    • This file is saved (no errors)
-   • You have Node.js installed (for dev mode)
-   • Try running again or check console for errors
+   • You have Node.js installed (for dev mode) or use the Windows installer
+   • Try running again or check console logs
 
 Q: QR code won't scan
 A: Try:
@@ -232,10 +314,8 @@ A: Check:
 
 Q: I forgot to add my number
 A: Just:
-   • Add it to ALLOWED_NUMBERS
+   • Open Settings in the app or add it to ALLOWED_NUMBERS
    • Save this file
    • Restart the app
-
-More help? See PACKAGING.md or CI-CD.md
 
 */

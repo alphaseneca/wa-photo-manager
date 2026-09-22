@@ -1,12 +1,13 @@
 {
 	"name": "whatsapp-photo-manager",
-	"version": "1.1.0",
+	"version": "1.0.0",
 	"description": "WhatsApp Photo Manager - Professional photo management and download system for Whatsapp",
 	"main": "dist/index.js",
 	"scripts": {
 		"build": "tsc",
 		"start": "ts-node src/index.ts",
 		"dev": "ts-node src/index.ts",
+		"package": "powershell -ExecutionPolicy Bypass -File scripts/build-package.ps1",
 		"postinstall": "node scripts/postinstall.js",
 		"clean": "rimraf dist"
 	},

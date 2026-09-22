@@ -1,10 +1,11 @@
 # WhatsApp Photo Manager
 
-A professional WhatsApp bot for managing and organizing photos by phone numbers and categories. Built with [`@open-wa/wa-automate`](https://github.com/open-wa/wa-automate-nodejs).
+A professional WhatsApp bot and desktop application for managing and organizing photos by phone numbers and categories. Built with [`@open-wa/wa-automate`](https://github.com/open-wa/wa-automate-nodejs).
 
 ## Features
 
 - **📱 WhatsApp Integration** — Connects to WhatsApp Web for automated media management
+- **🖥️ Windows System Tray App** — Run as a quiet background service with tray menu, live log viewer, and settings GUI
 - **🔐 Authorization System** — Only pre-approved phone numbers can use the service
 - **📁 Automatic Organization** — Creates folders by phone number within each category
 - **📂 Category System** — Organize media into customizable categories (4x6, A4, Polaroid, Banner)
@@ -13,13 +14,27 @@ A professional WhatsApp bot for managing and organizing photos by phone numbers 
 - **📊 Photo Counting** — Tracks and reports total photos per folder
 - **💬 Configurable Messages** — Fully customizable bot responses
 - **🔁 Session Persistence** — QR code scanned once, session persists across restarts
+- **📦 Zero-Dependency Installer** — Standalone Windows installer bundling portable Node.js and Google Chrome
 
-## Prerequisites
+## Getting Started
 
+### Option A: Windows Installer (Recommended for End Users)
+
+1. Run the installer located in `installer/WhatsAppPhotoManager-Installer-1.0.0-x64.exe` (or build it yourself).
+2. Launch **WhatsApp Photo Manager** from your desktop or start menu.
+3. The app starts minimized in the system tray:
+   - **QR Code Scan Dialog**: Automatically pops up when a WhatsApp QR code needs to be paired.
+   - **Configure Settings**: Right-click the tray icon to edit authorized numbers, photo categories, or download directory without editing code.
+   - **View Console Logs**: Real-time log monitoring with ANSI-color filtering.
+   - **Open Downloads Storage**: Direct shortcut to your saved files.
+
+### Option B: Developer Setup (Node.js)
+
+#### Prerequisites
 - **Node.js 18+**
 - **WhatsApp account** (for linking via QR code)
 
-## Installation
+#### Installation
 
 1. Clone the repository:
 ```bash
@@ -37,7 +52,7 @@ npm install
    - Add your authorized phone numbers to `ALLOWED_NUMBERS`
    - Customize photo categories, messages, and folder settings
 
-4. First run (QR code scan required):
+4. Start the bot:
 ```bash
 npm start
 ```
@@ -45,14 +60,14 @@ On first launch, a QR code will be saved as `qr_code_photo-manager-session.png` 
 
 ## Configuration
 
-All configuration lives in `config.js`:
+All configuration lives in `config.js` (or can be configured via GUI settings into `config.json`):
 
 ### Authorized Numbers
 
 ```javascript
 ALLOWED_NUMBERS: [
-    '9779867936480',  // Nepal
     '1234567890',     // US
+    '9779800000000',  // Nepal
 ],
 ```
 
@@ -85,7 +100,7 @@ Edit the `MESSAGES` object in `config.js` to customize all bot responses. Availa
 
 ## Usage
 
-1. **Send Phone Number** — Send a 7-15 digit phone number to the bot
+1. **Send Phone Number** — Send a 7-15 digit phone number to the bot (e.g., `1234567890`)
 2. **Select Category** — Reply with a number (1-4) to choose a category
 3. **Upload Media** — Send images, videos, or documents
 4. **Auto-Organized** — Files are saved to `downloads/[Category]/[PhoneNumber]/`
@@ -95,11 +110,11 @@ Edit the `MESSAGES` object in `config.js` to customize all bot responses. Availa
 ```
 downloads/
 ├── 4x6 Size Photo/
-│   └── 9779867936480/
+│   └── 1234567890/
 │       ├── 1715234567890.jpg
 │       └── 1715234567891.jpg
 ├── A4 Photo Frame/
-│   └── 9779867936480/
+│   └── 1234567890/
 ├── Polaroid Photo/
 └── 18x24 Banner/
 ```
@@ -112,24 +127,41 @@ downloads/
 | **Videos** | MP4, AVI, MOV | Saved as-is |
 | **Documents** | PDF, DOC, DOCX, TXT | Saved as-is |
 
+## Building the Windows Desktop Package
+
+To assemble the standalone distribution and compile the C# launcher:
+
+```bash
+npm run package
+```
+
+This runs `scripts/build-package.ps1` which:
+1. Compiles TypeScript source to `dist/`
+2. Downloads portable `node.exe` (LTS v20)
+3. Bundles standalone Chrome via Puppeteer CLI
+4. Compiles `scripts/Launcher.cs` with the custom app logo
+5. Copies all runtime dependencies into `out-build/whatsapp-photo-manager`
+
+To compile the single-file setup installer, open `scripts/installer.iss` in Inno Setup and build.
+
 ## Troubleshooting
 
 ### QR Code Not Generating
 
-- Set `headless: false` in `config.js` to see the browser window
-- Increase `authTimeout` and `qrTimeout` values
+- Set `headless: false` in `config.js` or via the Tray Settings menu to inspect the browser window.
+- Increase `authTimeout` and `qrTimeout` values.
 
 ### Session Expired / Login Issues
 
-1. Delete the `_IGNORE_photo-manager-session/` folder
-2. Delete any `*.data.json` files in the project root
-3. Restart with `headless: false` and re-scan the QR code
+1. Delete the `_IGNORE_photo-manager-session/` folder.
+2. Delete any `*.data.json` files in the project directory.
+3. Restart with `headless: false` and re-scan the QR code.
 
 ### "Browser Not Supported" Error
 
 This is handled automatically by the `postinstall` script. If it recurs:
-1. Run `npm install` (triggers the postinstall patch)
-2. If still failing, manually run `node scripts/postinstall.js`
+1. Run `npm install` (triggers the postinstall patch).
+2. If still failing, manually run `node scripts/postinstall.js`.
 
 ## Technical Notes
 
@@ -145,15 +177,11 @@ The bundled Puppeteer in `wa-automate` (v23) ships with an older Chromium. This 
 
 | Command | Description |
 |---------|-------------|
-| `npm start` | Start the bot |
-| `npm run dev` | Start the bot (same as start) |
+| `npm start` | Start the bot in development mode |
 | `npm run build` | Compile TypeScript to JavaScript |
+| `npm run package` | Build standalone Windows package with bundled Node & Chrome |
 | `npm run clean` | Remove build artifacts |
 
 ## License
 
 MIT License — see LICENSE file for details.
-
-## Support
-
-For issues or questions, please open an issue or contact the administrator.

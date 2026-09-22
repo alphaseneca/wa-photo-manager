@@ -5,9 +5,14 @@ import * as path from 'path';
 import heicConvert from 'heic-convert';
 import sharp from 'sharp';
 
-// Load configuration
-// @ts-ignore
-import config from '../config.js';
+// Load configuration dynamically from working directory
+const configPath = path.join(process.cwd(), 'config.js');
+if (!fs.existsSync(configPath)) {
+    console.error(`[!] Configuration file not found at: ${configPath}`);
+    console.error(`[!] Please ensure config.js exists in the application directory.`);
+    process.exit(1);
+}
+const config = require(configPath);
 
 // ========================================
 // CONFIGURATION

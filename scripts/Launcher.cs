@@ -21,10 +21,10 @@ public class AppConfig
     public AppConfig()
     {
         // Defaults matching config.js
-        PhotoCategories.Add("4x6 Size Photo");
-        PhotoCategories.Add("A4 Photo Frame");
-        PhotoCategories.Add("Polaroid Photo");
-        PhotoCategories.Add("18x24 Banner");
+        PhotoCategories.Add("Photo Category 1");
+        PhotoCategories.Add("Photo Category 2");
+        PhotoCategories.Add("Photo Category 3");
+        PhotoCategories.Add("Photo Category 4");
     }
 
     public static AppConfig Load(string path)

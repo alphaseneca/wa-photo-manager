@@ -81,13 +81,13 @@ const defaultConfig = {
 	// ========================================
 	// Customize these categories based on your needs
 	PHOTO_CATEGORIES: [
-		"4x6 Size Photo",
-		"A4 Photo Frame",
-		"Polaroid Photo",
-		"18x24 Banner",
+		"Photo Category 1",
+		"Photo Category 2",
+		"Photo Category 3",
+		"Photo Category 4",
 		// Add more categories as needed:
-		// 'Custom Category 1',
-		// 'Custom Category 2',
+		// 'Photo Category 5',
+		// 'Photo Category 6',
 	],
 
 	// ========================================

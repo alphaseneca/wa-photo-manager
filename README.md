@@ -1,187 +1,294 @@
-# WhatsApp Photo Manager
+<p align="center">
+  <img src="assets/app-logo.png" alt="WhatsApp Photo Manager Logo" width="128" height="128" style="border-radius: 24px;" />
+</p>
 
-A professional WhatsApp bot and desktop application for managing and organizing photos by phone numbers and categories. Built with [`@open-wa/wa-automate`](https://github.com/open-wa/wa-automate-nodejs).
+<h1 align="center">WhatsApp Photo Manager</h1>
 
-## Features
+<p align="center">
+  <strong>Production-grade WhatsApp bot and Windows desktop service for automated photo organization, batch media processing, and categorized storage.</strong>
+</p>
 
-- **📱 WhatsApp Integration** — Connects to WhatsApp Web for automated media management
-- **🖥️ Windows System Tray App** — Run as a quiet background service with tray menu, live log viewer, and settings GUI
-- **🔐 Authorization System** — Only pre-approved phone numbers can use the service
-- **📁 Automatic Organization** — Creates folders by phone number within each category
-- **📂 Category System** — Organize media into customizable categories (4x6, A4, Polaroid, Banner)
-- **📸 Multi-Media Support** — Handles images, videos, and documents
-- **🔄 Image Conversion** — HEIC/HEIF auto-converted to JPG; all images standardized via Sharp
-- **📊 Photo Counting** — Tracks and reports total photos per folder
-- **💬 Configurable Messages** — Fully customizable bot responses
-- **🔁 Session Persistence** — QR code scanned once, session persists across restarts
-- **📦 Zero-Dependency Installer** — Standalone Windows installer bundling portable Node.js and Google Chrome
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.0-emerald.svg" alt="Version 1.0.0" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Node.js-blue.svg" alt="Platform" />
+  <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg" alt="Node.js Requirement" />
+  <img src="https://img.shields.io/badge/license-MIT-purple.svg" alt="License" />
+  <img src="https://img.shields.io/badge/tests-16%20passed-success.svg" alt="Test Status" />
+</p>
 
-## Getting Started
+---
 
-### Option A: Windows Installer (Recommended for End Users)
+## Overview
 
-1. Run the installer located in `installer/WhatsAppPhotoManager-Installer-1.0.0-x64.exe` (or build it yourself).
-2. Launch **WhatsApp Photo Manager** from your desktop or start menu.
-3. The app starts minimized in the system tray:
-   - **QR Code Scan Dialog**: Automatically pops up when a WhatsApp QR code needs to be paired.
-   - **Configure Settings**: Right-click the tray icon to edit authorized numbers, photo categories, or download directory without editing code.
-   - **View Console Logs**: Real-time log monitoring with ANSI-color filtering.
-   - **Open Downloads Storage**: Direct shortcut to your saved files.
+**WhatsApp Photo Manager** provides an automated bridge between WhatsApp and your local file storage. Incoming photos, videos, and documents sent by authorized contacts are categorized, validated, standardized, and saved into structured directories in real time.
 
-### Option B: Developer Setup (Node.js)
+It can be deployed either as a **standalone Windows background tray application** (with no runtime dependencies required) or run directly in **headless developer mode** on any Node.js environment.
+
+---
+
+## Key Highlights
+
+- 🔒 **Contact Authorization Whitelist**: Restrict bot usage strictly to verified client and staff phone numbers.
+- 🗂️ **Automated Folder Categorization**: Automatically structures media into `downloads/<Category>/<PhoneNumber>/`.
+- 🖼️ **On-the-Fly Image Standardization**: Auto-converts HEIC/HEIF images from iOS devices to JPG; standardizes color profiles and dimensions using Sharp.
+- 🖥️ **Native Windows System Tray Interface**:
+  - Starts silently in the background without intrusive terminal popups.
+  - Interactive "Link WhatsApp" modal displaying QR codes with auto-refresh and automatic dismissal upon authentication.
+  - Dark-mode diagnostics console with real-time process monitoring and log archiving.
+  - Built-in GUI Settings dialog for folder picking and contact management without touching code.
+- 📦 **Zero-Dependency Installer**: Bundles standalone Node.js and Google Chrome into an Inno Setup installer (~246 MB).
+- 🧪 **Enterprise Test Suite**: Built-in unit and integration test coverage across configuration, security sanitizers, and binary integrity.
+
+---
+
+## System Architecture
+
+```mermaid
+flowchart TD
+    User["📱 WhatsApp Sender"] -->|Sends Phone Number| WAPI["WhatsApp Web Engine (@open-wa/wa-automate)"]
+    WAPI --> AuthCheck{"Is Sender Authorized?"}
+    AuthCheck -- No --> DenyMsg["Reply: Access Denied"]
+    AuthCheck -- Yes --> CategoryMenu["Send Category Options (1..N)"]
+
+    User -->|Selects Category| CategoryMenu
+    CategoryMenu --> FolderInit["Create downloads/<Category>/<Phone>/"]
+    
+    User -->|Sends Media| MediaPipeline["Media Ingestion Pipeline"]
+    MediaPipeline --> TypeCheck{"Media Type?"}
+    
+    TypeCheck -- "HEIC / HEIF" --> Converter["Convert to JPEG (heic-convert + Sharp)"]
+    TypeCheck -- "JPG / PNG" --> Standardizer["Process Image (Sharp)"]
+    TypeCheck -- "Video / Doc" --> Passthrough["Stream Direct to Disk"]
+    
+    Converter --> DiskStore[("Structured Disk Storage")]
+    Standardizer --> DiskStore
+    Passthrough --> DiskStore
+    
+    DiskStore --> Confirmation["Reply: Photo #N Saved + Total Count"]
+    Confirmation --> User
+```
+
+---
+
+## Quickstart Guide
+
+### Option 1: Standalone Windows App (Recommended for Users)
+
+1. Download or compile the installer:
+   ```text
+   installer/WhatsAppPhotoManager-Installer-1.0.0-x64.exe
+   ```
+2. Run the installer and follow the setup wizard.
+3. Launch **WhatsApp Photo Manager** from the Start Menu or Desktop.
+4. The app launches quietly in your **System Tray** (near the Windows clock):
+   - When first launched, the **"Link WhatsApp"** dialog opens automatically.
+   - Scan the QR code using WhatsApp on your phone (**Linked Devices** > **Link a Device**).
+   - Once connected, the window automatically closes and the bot is live.
+5. Right-click the system tray icon anytime to open **Settings**, view **Live Logs**, or open your **Downloads Folder**.
+
+---
+
+### Option 2: Developer & Server Setup (Node.js)
 
 #### Prerequisites
-- **Node.js 18+**
-- **WhatsApp account** (for linking via QR code)
+- **Node.js**: `v18.0.0` or higher
+- **npm**: `v9.0.0` or higher
+- **Git**
 
 #### Installation
 
-1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+# 1. Clone the repository
+git clone https://github.com/alphaseneca/wa-photo-manager.git
 cd wa-photo-manager
+
+# 2. Install dependencies (automatically runs postinstall compatibility patch)
+npm ci
+
+# 3. Compile TypeScript
+npm run build
+
+# 4. Run automated test suite
+npm test
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
-> The `postinstall` script automatically patches the WhatsApp Web user agent for compatibility. See [Technical Notes](#technical-notes) for details.
+#### Running the Service
 
-3. Configure the bot — edit `config.js`:
-   - Add your authorized phone numbers to `ALLOWED_NUMBERS`
-   - Customize photo categories, messages, and folder settings
-
-4. Start the bot:
 ```bash
+# Start in production mode
 npm start
-```
-On first launch, a QR code will be saved as `qr_code_photo-manager-session.png` in the project root. Scan it with your WhatsApp mobile app to link the session. **Keep the session alive for at least 5 minutes** after scanning before restarting.
 
-## Configuration
-
-All configuration lives in `config.js` (or can be configured via GUI settings into `config.json`):
-
-### Authorized Numbers
-
-```javascript
-ALLOWED_NUMBERS: [
-    '1234567890',     // US
-    '9779800000000',  // Nepal
-],
+# Or start in development mode with live reload
+npm run dev
 ```
 
-### Photo Categories
+On first launch, scan the QR code displayed in the console or open `qr_code_photo-manager-session.png` generated in the root directory.
 
-```javascript
-PHOTO_CATEGORIES: [
-    '4x6 Size Photo',
-    'A4 Photo Frame',
-    'Polaroid Photo',
-    '18x24 Banner'
-],
+---
+
+## Usage Workflow
+
+The bot guides authorized users through a structured 3-step conversation:
+
+```text
+Step 1: Contact sends phone number identifier
+   Example: 1234567890
+
+Step 2: Bot presents configured category choices:
+   📂 Select Photo Category
+   1️⃣ Photo Category 1
+   2️⃣ Photo Category 2
+   3️⃣ Photo Category 3
+   4️⃣ Photo Category 4
+
+Step 3: Contact replies with choice (e.g., '1')
+   Bot creates destination folder and confirms readiness.
+
+Step 4: Contact sends photos, videos, or documents
+   Media is saved with sequential numbering and instant counter confirmations.
 ```
 
-### Bot Settings
+### Generated Directory Layout
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `sessionId` | `photo-manager-session` | Unique session identifier |
-| `authTimeout` | `120` | QR code scan timeout (seconds) |
-| `qrTimeout` | `120` | QR code generation timeout (seconds) |
-| `headless` | `true` | Run browser in background (`false` to debug or re-scan QR) |
-| `multiDevice` | `true` | WhatsApp multi-device support |
-| `deleteSessionDataOnLogout` | `true` | Auto-cleanup session data on logout |
-| `waitForRipeSession` | `true` | Wait for session to fully initialize before injection |
-
-### Messages
-
-Edit the `MESSAGES` object in `config.js` to customize all bot responses. Available variables: `{phone}`, `{category}`, `{folder}`, `{filename}`, `{count}`, `{size}`.
-
-## Usage
-
-1. **Send Phone Number** — Send a 7-15 digit phone number to the bot (e.g., `1234567890`)
-2. **Select Category** — Reply with a number (1-4) to choose a category
-3. **Upload Media** — Send images, videos, or documents
-4. **Auto-Organized** — Files are saved to `downloads/[Category]/[PhoneNumber]/`
-
-### Folder Structure
-
-```
+```text
 downloads/
-├── 4x6 Size Photo/
+├── Photo Category 1/
+│   ├── 1234567890/
+│   │   ├── 1715234567890.jpg  (Photo #1)
+│   │   ├── 1715234567891.jpg  (Photo #2)
+│   │   └── 1715234567892.jpg  (Photo #3)
+│   └── 9876543210/
+│       └── 1715234567900.jpg
+├── Photo Category 2/
 │   └── 1234567890/
-│       ├── 1715234567890.jpg
-│       └── 1715234567891.jpg
-├── A4 Photo Frame/
-│   └── 1234567890/
-├── Polaroid Photo/
-└── 18x24 Banner/
+├── Photo Category 3/
+└── Photo Category 4/
 ```
 
-### Supported Formats
+---
 
-| Type | Formats | Notes |
-|------|---------|-------|
-| **Images** | JPG, PNG, HEIC, HEIF, GIF, WEBP | All converted to JPG |
-| **Videos** | MP4, AVI, MOV | Saved as-is |
-| **Documents** | PDF, DOC, DOCX, TXT | Saved as-is |
+## Configuration Reference
 
-## Building the Windows Desktop Package
+Settings can be managed either graphically via the **Tray Settings Dialog** (which persists to `config.json`) or directly by editing [`config.js`](config.js).
 
-To assemble the standalone distribution and compile the C# launcher:
+### Configuration Schema
+
+| Setting Key | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `ALLOWED_NUMBERS` | `string[]` | `[]` *(Allow all)* | Whitelisted phone numbers / sender IDs. Numbers must contain only digits. |
+| `PHOTO_CATEGORIES` | `string[]` | `['Photo Category 1', ...]` | Registered categories. Each corresponds to an auto-created storage directory. |
+| `FOLDER_SETTINGS.downloadsDir` | `string` | `"downloads"` | Root storage directory on disk (relative or absolute path). |
+| `FOLDER_SETTINGS.maxFileSize` | `number` | `52428800` *(50MB)* | Maximum allowed file size per media upload in bytes. |
+| `BOT_CONFIG.sessionId` | `string` | `"photo-manager-session"` | Unique session name used for browser storage and QR pairing. |
+| `BOT_CONFIG.headless` | `boolean` | `true` | Runs Chromium headless in the background without opening a browser window. |
+| `BOT_CONFIG.multiDevice` | `boolean` | `true` | Enables WhatsApp Multi-Device protocol support. |
+| `BOT_CONFIG.authTimeout` | `number` | `120` | QR scan timeout in seconds before regenerating a new code. |
+
+### `config.json` Override Format
+
+When running as an installed desktop app, settings are saved cleanly to `config.json` without modifying code files:
+
+```json
+{
+  "ALLOWED_NUMBERS": [
+    "1234567890",
+    "9779800000000"
+  ],
+  "PHOTO_CATEGORIES": [
+    "Photo Category 1",
+    "Photo Category 2",
+    "Photo Category 3",
+    "Photo Category 4"
+  ],
+  "FOLDER_SETTINGS": {
+    "downloadsDir": "C:\\Users\\User\\Pictures\\WhatsAppPhotos"
+  },
+  "BOT_CONFIG": {
+    "sessionId": "photo-manager-session",
+    "headless": true,
+    "multiDevice": true
+  }
+}
+```
+
+---
+
+## Automated Testing & Quality Assurance
+
+The codebase includes an automated regression test suite using Node.js's native test runner (`node:test`):
 
 ```bash
-npm run package
+# Execute full test suite
+npm test
 ```
 
-This runs `scripts/build-package.ps1` which:
-1. Compiles TypeScript source to `dist/`
-2. Downloads portable `node.exe` (LTS v20)
-3. Bundles standalone Chrome via Puppeteer CLI
-4. Compiles `scripts/Launcher.cs` with the custom app logo
-5. Copies all runtime dependencies into `out-build/whatsapp-photo-manager`
+### Test Suites Covered:
+- **Configuration Module Suite**: Validates config parsing, generic category conventions, bot parameters, and message formats.
+- **Sanitizer & Security Suite**: Tests international phone number parsing, strict character whitelisting, directory traversal protections, and allowed media extensions.
+- **Build & Packaging Integrity Suite**: Verifies binary signatures for PNG/ICO assets, Inno Setup parameterization, and launcher compilation prerequisites.
 
-To compile the single-file setup installer, open `scripts/installer.iss` in Inno Setup and build.
+---
 
-## Troubleshooting
+## Desktop Packaging & Distribution
 
-### QR Code Not Generating
+To build the standalone Windows application package and single-file setup installer:
 
-- Set `headless: false` in `config.js` or via the Tray Settings menu to inspect the browser window.
-- Increase `authTimeout` and `qrTimeout` values.
+```powershell
+# 1. Compile TypeScript, bundle dependencies, and compile C# launcher
+npm run package
 
-### Session Expired / Login Issues
+# 2. Build Inno Setup Installer executable
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" scripts\installer.iss
+```
 
-1. Delete the `_IGNORE_photo-manager-session/` folder.
-2. Delete any `*.data.json` files in the project directory.
-3. Restart with `headless: false` and re-scan the QR code.
+The resulting installer is output to:
+```text
+installer/WhatsAppPhotoManager-Installer-1.0.0-x64.exe
+```
 
-### "Browser Not Supported" Error
+---
 
-This is handled automatically by the `postinstall` script. If it recurs:
-1. Run `npm install` (triggers the postinstall patch).
-2. If still failing, manually run `node scripts/postinstall.js`.
+## CI / CD Pipelines
 
-## Technical Notes
+The repository includes pre-configured GitHub Actions workflows in [`.github/workflows/`](.github/workflows/):
 
-### User Agent Patch
+- **Continuous Integration (`ci.yml`)**: Automatically triggers on all pushes and pull requests across Ubuntu and Windows environments with Node.js 18, 20, and 22. Runs TypeScript builds and automated test suites.
+- **Automated Release (`release.yml`)**: Triggers on version tag pushes (`v*.*.*`). Assembles the standalone package on Windows, compiles the Inno Setup installer, and publishes a new GitHub Release with attached binaries.
 
-`@open-wa/wa-automate@4.76.0` hardcodes a `WhatsApp/x.x.x Chrome/104.0.0.0` user agent string. WhatsApp Web now rejects this, showing a "browser not supported" page. The `scripts/postinstall.js` script patches this to a clean modern Chrome user agent on every `npm install`.
+---
 
-### Puppeteer Override
+## Project Structure
 
-The bundled Puppeteer in `wa-automate` (v23) ships with an older Chromium. This project overrides it to Puppeteer v24 (Chromium 148+) via npm `overrides` in `package.json` to ensure compatibility with current WhatsApp Web.
+```text
+wa-photo-manager/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              # Multi-OS test & build verification
+│       └── release.yml         # Tag-triggered Windows installer release
+├── assets/
+│   ├── app-logo.png            # High-resolution application brand logo
+│   └── app-logo.ico            # Multi-frame Windows icon (16px to 256px)
+├── scripts/
+│   ├── Launcher.cs             # Native C# Windows tray launcher & GUI dialogs
+│   ├── build-package.ps1       # Packaging automation script
+│   ├── installer.iss           # Inno Setup 6 compilation script
+│   ├── png-to-ico.js           # Multi-resolution ICO generator
+│   └── postinstall.js          # Puppeteer & User-Agent compatibility patch
+├── src/
+│   ├── index.ts                # Application lifecycle & WhatsApp event loop
+│   └── ...
+├── tests/
+│   ├── build-integrity.test.js # Asset & packaging integrity tests
+│   ├── config.test.js          # Config schema & validation tests
+│   └── sanitizer.test.js       # Security & phone sanitization tests
+├── config.js                   # Active configuration & message dictionary
+├── config.template.js          # Clean configuration template
+├── package.json
+└── tsconfig.json
+```
 
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm start` | Start the bot in development mode |
-| `npm run build` | Compile TypeScript to JavaScript |
-| `npm run package` | Build standalone Windows package with bundled Node & Chrome |
-| `npm run clean` | Remove build artifacts |
+---
 
 ## License
 
-MIT License — see LICENSE file for details.
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.

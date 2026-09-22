@@ -81,10 +81,10 @@ const defaultConfig = {
     // Users will select from these categories when organizing photos
     
     PHOTO_CATEGORIES: [
-        '4x6 Size Photo',
-        'A4 Photo Frame', 
-        'Polaroid Photo',
-        '18x24 Banner'
+        'Photo Category 1',
+        'Photo Category 2', 
+        'Photo Category 3',
+        'Photo Category 4'
     ],
 
     // ========================================
@@ -194,10 +194,10 @@ Please try:
    • Example: 1234567890
 
 **Step 2:** Select Category
-   1️⃣ 4x6 Size Photo
-   2️⃣ A4 Photo Frame
-   3️⃣ Polaroid Photo
-   4️⃣ 18x24 Banner
+   1️⃣ Photo Category 1
+   2️⃣ Photo Category 2
+   3️⃣ Photo Category 3
+   4️⃣ Photo Category 4
 
 **Step 3:** Upload Media
    • Photos (JPG, PNG, HEIC)
@@ -301,27 +301,27 @@ module.exports = config;
    The system creates this structure automatically:
    
    downloads/
-   ├── 4x6 Size Photo/
+   ├── Photo Category 1/
    │   ├── 1234567890/
    │   │   ├── 1715234567890.jpg (Photo #1)
    │   │   ├── 1715234567891.jpg (Photo #2)
    │   │   └── 1715234567892.jpg (Photo #3)
    │   └── 9876543210/
-   ├── A4 Photo Frame/
+   ├── Photo Category 2/
    │   └── 1234567890/
-   ├── Polaroid Photo/
+   ├── Photo Category 3/
    │   └── 9876543210/
-   └── 18x24 Banner/
+   └── Photo Category 4/
        └── 5551234567/
 
 5. USER WORKFLOW EXAMPLE
    Step 1: User sends → 1234567890
    Step 2: Bot shows categories with numbers
-   Step 3: User sends → 2 (selects A4 Photo Frame)
+   Step 3: User sends → 2 (selects Photo Category 2)
    Step 4: Bot confirms folder creation
    Step 5: User sends photos
    Result: Photos saved as:
-           downloads/A4 Photo Frame/1234567890/[timestamp].jpg
+           downloads/Photo Category 2/1234567890/[timestamp].jpg
            Each photo numbered: "Photo #1 saved", "Photo #2 saved", etc.
 
 6. SUPPORTED FORMATS

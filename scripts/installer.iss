@@ -14,6 +14,7 @@
 [Setup]
 AppName=WhatsApp Photo Manager
 AppVersion={#AppVer}
+AppVerName=WhatsApp Photo Manager v{#AppVer}
 AppPublisher=Ukesh Aryal
 DefaultDirName={localappdata}\WhatsAppPhotoManager
 DefaultGroupName=WhatsApp Photo Manager
@@ -22,12 +23,12 @@ OutputBaseFilename=WhatsAppPhotoManager-Installer-{#AppVer}-{#AppArch}
 SetupIconFile=..\assets\app-logo.ico
 UninstallDisplayIcon={app}\whatsapp-photo-manager.exe
 DisableProgramGroupPage=yes
-Compression=lzma
+Compression=lzma2/fast
 SolidCompression=yes
 PrivilegesRequired=lowest
 
 [Files]
-Source: "..\out-build\whatsapp-photo-manager\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\out-build\whatsapp-photo-manager\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Excludes: "*.log,*.data.json,config.json,qr_code*.png,_IGNORE_*"
 
 [Icons]
 Name: "{group}\WhatsApp Photo Manager"; Filename: "{app}\whatsapp-photo-manager.exe"; WorkingDir: "{app}"

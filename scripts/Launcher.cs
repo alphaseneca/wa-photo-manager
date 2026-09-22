@@ -183,7 +183,7 @@ public class SettingsForm : Form
 
     private void InitializeComponent()
     {
-        this.Text = "WhatsApp Photo Manager - Settings";
+        this.Text = "WhatsApp Photo Manager v1.0.0 - Settings";
         this.Size = new Size(500, 520);
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
@@ -365,7 +365,7 @@ public class LogViewerForm : Form
 
     private void InitializeComponent()
     {
-        this.Text = "WhatsApp Photo Manager - Live Console Logs";
+        this.Text = "WhatsApp Photo Manager v1.0.0 - Live Console Logs";
         this.Size = new Size(700, 500);
         this.StartPosition = FormStartPosition.CenterScreen;
         this.Icon = Program.AppIcon;
@@ -589,7 +589,7 @@ public class TrayApplicationContext : ApplicationContext
     {
         contextMenu = new ContextMenuStrip();
         
-        menuHeader = new ToolStripMenuItem("WhatsApp Photo Manager") { Enabled = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        menuHeader = new ToolStripMenuItem("WhatsApp Photo Manager v1.0.0") { Enabled = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
         menuStatus = new ToolStripMenuItem("Status: Stopped") { Enabled = false };
         
         menuToggle = new ToolStripMenuItem("Start Bot", null, ToggleBot_Click);
@@ -617,7 +617,7 @@ public class TrayApplicationContext : ApplicationContext
         {
             Icon = Program.AppIcon,
             ContextMenuStrip = contextMenu,
-            Text = "WhatsApp Photo Manager - Bot is offline",
+            Text = "WhatsApp Photo Manager v1.0.0 - Bot is offline",
             Visible = true
         };
         
@@ -734,7 +734,7 @@ public class TrayApplicationContext : ApplicationContext
 
             menuStatus.Text = "Status: Running";
             menuToggle.Text = "Stop Bot";
-            notifyIcon.Text = "WhatsApp Photo Manager - Bot is online";
+            notifyIcon.Text = "WhatsApp Photo Manager v1.0.0 - Bot is online";
             
             // Check if QR code file is already on disk (leftovers)
             if (File.Exists(qrCodePath))
@@ -795,7 +795,7 @@ public class TrayApplicationContext : ApplicationContext
             menuStatus.Text = "Status: Stopped";
             menuToggle.Text = "Start Bot";
             menuQR.Enabled = false;
-            notifyIcon.Text = "WhatsApp Photo Manager - Bot is offline";
+            notifyIcon.Text = "WhatsApp Photo Manager v1.0.0 - Bot is offline";
             
             if (qrForm != null && !qrForm.IsDisposed)
             {
@@ -1022,6 +1022,17 @@ public static class Program
                 }
             }
             catch {}
+
+            try
+            {
+                Icon exeIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                if (exeIcon != null)
+                {
+                    return exeIcon;
+                }
+            }
+            catch {}
+
             return SystemIcons.Application;
         }
     }

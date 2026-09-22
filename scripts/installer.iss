@@ -16,12 +16,15 @@ AppName=WhatsApp Photo Manager
 AppVersion={#AppVer}
 AppVerName=WhatsApp Photo Manager v{#AppVer}
 AppPublisher=Ukesh Aryal
+AppMutex=Global\WhatsAppPhotoManagerTrayAppMutex
 DefaultDirName={localappdata}\WhatsAppPhotoManager
 DefaultGroupName=WhatsApp Photo Manager
 OutputDir=..\installer
 OutputBaseFilename=WhatsAppPhotoManager-Installer-{#AppVer}-{#AppArch}
 SetupIconFile=..\assets\app-logo.ico
 UninstallDisplayIcon={app}\whatsapp-photo-manager.exe
+CloseApplications=yes
+CloseApplicationsFilter=*.exe
 DisableProgramGroupPage=yes
 Compression=lzma2/fast
 SolidCompression=yes
@@ -46,4 +49,66 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 ValueType: string; ValueName: "WhatsAppPhotoManager"; ValueData: "{app}\whatsapp-photo-manager.exe"; Flags: uninsdeletevalue; Tasks: autostart
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}"
+Type: files; Name: "{app}\*.log"
+Type: files; Name: "{app}\*.png"
+Type: files; Name: "{app}\config.json"
+Type: filesandordirs; Name: "{app}\_IGNORE_*"
+Type: filesandordirs; Name: "{app}\app"
+Type: filesandordirs; Name: "{app}\chrome"
+
+[Code]
+// Clean uninstallation: Terminate running background instances first
+function InitializeUninstall(): Boolean;
+var
+  ErrorCode: Integer;
+begin
+  Result := True;
+  
+  // Terminate any running instances of whatsapp-photo-manager and child processes
+  Exec('taskkill.exe', '/F /IM whatsapp-photo-manager.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
+  Sleep(500);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DownloadsPath: string;
+  RemoveData: Integer;
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    DownloadsPath := ExpandConstant('{app}\downloads');
+    
+    // Check if downloads directory exists and has files
+    if DirExists(DownloadsPath) then
+    begin
+      RemoveData := MsgBox(
+        'Do you want to completely remove all downloaded photos and media?' + #13#10 + #13#10 +
+        'Click "Yes" to delete all downloads and perform a 100% clean uninstall.' + #13#10 +
+        'Click "No" to preserve your downloaded photos in:' + #13#10 + DownloadsPath,
+        mbConfirmation, MB_YESNO
+      );
+      
+      if RemoveData = IDYES then
+      begin
+        DelTree(DownloadsPath, True, True, True);
+      end;
+    end;
+  end
+  else if CurUninstallStep = usPostUninstall then
+  begin
+    // Clean up temporary logs, session caches, and app files
+    DelTree(ExpandConstant('{app}\_IGNORE_*'), True, True, True);
+    DelTree(ExpandConstant('{app}\app'), True, True, True);
+    DelTree(ExpandConstant('{app}\chrome'), True, True, True);
+    DeleteFile(ExpandConstant('{app}\*.log'));
+    DeleteFile(ExpandConstant('{app}\*.png'));
+    DeleteFile(ExpandConstant('{app}\config.json'));
+    
+    // If downloads directory was deleted (or does not exist), remove the root directory completely
+    if not DirExists(ExpandConstant('{app}\downloads')) then
+    begin
+      DelTree(ExpandConstant('{app}'), True, True, True);
+      RemoveDir(ExpandConstant('{app}'));
+    end;
+  end;
+end;

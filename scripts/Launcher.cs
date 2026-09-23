@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -152,16 +154,202 @@ public static class UITheme
 
     public static Button CreateButton(string text, Color bg, Color fg, int width = 110, int height = 34, bool isBold = false)
     {
-        Button btn = new Button();
+        RoundedButton btn = new RoundedButton();
         btn.Text = text;
         btn.BackColor = bg;
         btn.ForeColor = fg;
-        btn.FlatStyle = FlatStyle.Flat;
-        btn.FlatAppearance.BorderSize = 0;
         btn.Font = new Font("Segoe UI", 9.25F, isBold ? FontStyle.Bold : FontStyle.Regular);
         btn.Size = new Size(width, height);
-        btn.Cursor = Cursors.Hand;
+        btn.CornerRadius = 6;
         return btn;
+    }
+}
+
+public class RoundedButton : Button
+{
+    private int _cornerRadius = 6;
+    private bool _isHovered = false;
+    private bool _isPressed = false;
+
+    public int CornerRadius
+    {
+        get { return _cornerRadius; }
+        set { _cornerRadius = value; Invalidate(); }
+    }
+
+    public RoundedButton()
+    {
+        this.FlatStyle = FlatStyle.Flat;
+        this.FlatAppearance.BorderSize = 0;
+        this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
+        this.BackColor = Color.White;
+        this.Cursor = Cursors.Hand;
+    }
+
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        base.OnMouseEnter(e);
+        _isHovered = true;
+        Invalidate();
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _isHovered = false;
+        _isPressed = false;
+        Invalidate();
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button == MouseButtons.Left)
+        {
+            _isPressed = true;
+            Invalidate();
+        }
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        _isPressed = false;
+        Invalidate();
+    }
+
+    private Color GetParentBackColor()
+    {
+        Control p = this.Parent;
+        while (p != null)
+        {
+            if (p.BackColor != Color.Transparent && p.BackColor != Color.Empty)
+            {
+                return p.BackColor;
+            }
+            p = p.Parent;
+        }
+        return Color.White;
+    }
+
+    public static GraphicsPath CreateRoundedRectanglePath(RectangleF rect, float radius)
+    {
+        GraphicsPath path = new GraphicsPath();
+        float diameter = radius * 2f;
+        if (rect.Width < diameter) diameter = rect.Width;
+        if (rect.Height < diameter) diameter = rect.Height;
+
+        RectangleF arc = new RectangleF(rect.X, rect.Y, diameter, diameter);
+
+        // Top-left
+        path.AddArc(arc, 180, 90);
+
+        // Top-right
+        arc.X = rect.Right - diameter;
+        path.AddArc(arc, 270, 90);
+
+        // Bottom-right
+        arc.Y = rect.Bottom - diameter;
+        path.AddArc(arc, 0, 90);
+
+        // Bottom-left
+        arc.X = rect.Left;
+        path.AddArc(arc, 90, 90);
+
+        path.CloseFigure();
+        return path;
+    }
+
+    private static Color AdjustBrightness(Color baseColor, float factor)
+    {
+        float r = (float)baseColor.R;
+        float g = (float)baseColor.G;
+        float b = (float)baseColor.B;
+
+        if (factor > 0)
+        {
+            r = r + (255f - r) * factor;
+            g = g + (255f - g) * factor;
+            b = b + (255f - b) * factor;
+        }
+        else
+        {
+            r = r * (1f + factor);
+            g = g * (1f + factor);
+            b = b * (1f + factor);
+        }
+
+        int ir = (int)Math.Max(0, Math.Min(255, Math.Round(r)));
+        int ig = (int)Math.Max(0, Math.Min(255, Math.Round(g)));
+        int ib = (int)Math.Max(0, Math.Min(255, Math.Round(b)));
+
+        return Color.FromArgb(baseColor.A, ir, ig, ib);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        Graphics g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+        Color parentBg = GetParentBackColor();
+        using (SolidBrush parentBrush = new SolidBrush(parentBg))
+        {
+            g.FillRectangle(parentBrush, this.ClientRectangle);
+        }
+
+        Color currentColor = this.BackColor;
+        if (!this.Enabled)
+        {
+            currentColor = Color.FromArgb(226, 232, 240);
+        }
+        else if (_isPressed)
+        {
+            currentColor = AdjustBrightness(this.BackColor, -0.15f);
+        }
+        else if (_isHovered)
+        {
+            if (this.BackColor.R + this.BackColor.G + this.BackColor.B > 600)
+            {
+                currentColor = AdjustBrightness(this.BackColor, -0.06f);
+            }
+            else
+            {
+                currentColor = AdjustBrightness(this.BackColor, -0.08f);
+            }
+        }
+
+        float offset = 0.5f;
+        RectangleF rect = new RectangleF(offset, offset, (float)this.Width - 1f, (float)this.Height - 1f);
+
+        using (GraphicsPath path = CreateRoundedRectanglePath(rect, (float)_cornerRadius))
+        {
+            using (SolidBrush fillBrush = new SolidBrush(currentColor))
+            {
+                g.FillPath(fillBrush, path);
+            }
+
+            int borderSize = this.FlatAppearance.BorderSize;
+            Color borderColor = this.FlatAppearance.BorderColor;
+            if (borderSize > 0 && borderColor != Color.Empty && borderColor != Color.Transparent)
+            {
+                using (Pen pen = new Pen(borderColor, (float)borderSize))
+                {
+                    g.DrawPath(pen, path);
+                }
+            }
+        }
+
+        Color textColor = this.Enabled ? this.ForeColor : Color.FromArgb(148, 163, 184);
+        TextRenderer.DrawText(
+            g,
+            this.Text,
+            this.Font,
+            this.ClientRectangle,
+            textColor,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine
+        );
     }
 }
 
@@ -782,6 +970,62 @@ public class QrCodeForm : Form
         this.FormClosed += QrCodeForm_FormClosed;
     }
 
+    private static Bitmap RecolorQrToBlack(Bitmap src)
+    {
+        Bitmap result = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
+        using (Graphics g = Graphics.FromImage(result))
+        {
+            g.Clear(Color.White);
+            g.DrawImage(src, 0, 0, src.Width, src.Height);
+        }
+
+        BitmapData data = result.LockBits(
+            new Rectangle(0, 0, result.Width, result.Height),
+            ImageLockMode.ReadWrite,
+            PixelFormat.Format32bppArgb);
+
+        int bytes = Math.Abs(data.Stride) * result.Height;
+        byte[] rgbValues = new byte[bytes];
+        Marshal.Copy(data.Scan0, rgbValues, 0, bytes);
+
+        for (int i = 0; i < bytes; i += 4)
+        {
+            byte b = rgbValues[i];
+            byte g = rgbValues[i + 1];
+            byte r = rgbValues[i + 2];
+            byte a = rgbValues[i + 3];
+
+            if (a < 128)
+            {
+                rgbValues[i] = 255;
+                rgbValues[i + 1] = 255;
+                rgbValues[i + 2] = 255;
+                rgbValues[i + 3] = 255;
+            }
+            else
+            {
+                int lum = (r * 299 + g * 587 + b * 114) / 1000;
+                if (lum >= 200)
+                {
+                    rgbValues[i] = 255;
+                    rgbValues[i + 1] = 255;
+                    rgbValues[i + 2] = 255;
+                }
+                else
+                {
+                    rgbValues[i] = 0;
+                    rgbValues[i + 1] = 0;
+                    rgbValues[i + 2] = 0;
+                }
+                rgbValues[i + 3] = 255;
+            }
+        }
+
+        Marshal.Copy(rgbValues, 0, data.Scan0, bytes);
+        result.UnlockBits(data);
+        return result;
+    }
+
     private void LoadQRImage()
     {
         if (InvokeRequired)
@@ -797,12 +1041,25 @@ public class QrCodeForm : Form
                 byte[] bytes = File.ReadAllBytes(imagePath);
                 using (MemoryStream ms = new MemoryStream(bytes))
                 {
-                    pictureBox.Image = Image.FromStream(ms);
+                    using (Bitmap orig = new Bitmap(ms))
+                    {
+                        Bitmap recolored = RecolorQrToBlack(orig);
+                        Image old = pictureBox.Image;
+                        pictureBox.Image = recolored;
+                        if (old != null)
+                        {
+                            old.Dispose();
+                        }
+                    }
                 }
             }
             else
             {
-                pictureBox.Image = null;
+                if (pictureBox.Image != null)
+                {
+                    pictureBox.Image.Dispose();
+                    pictureBox.Image = null;
+                }
             }
         }
         catch (Exception ex)
@@ -835,6 +1092,12 @@ public class QrCodeForm : Form
         {
             watcher.EnableRaisingEvents = false;
             watcher.Dispose();
+            watcher = null;
+        }
+        if (pictureBox != null && pictureBox.Image != null)
+        {
+            pictureBox.Image.Dispose();
+            pictureBox.Image = null;
         }
     }
 }

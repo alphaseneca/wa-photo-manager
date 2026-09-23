@@ -71,7 +71,19 @@ function getPhotoCount(folderPath: string): number {
 ev.on('qr.**', async (qrcode, sessionId) => {
     const base64Data = qrcode.replace('data:image/png;base64,', '');
     const filename = `qr_code${sessionId ? '_' + sessionId : ''}.png`;
-    fs.writeFileSync(filename, base64Data, 'base64');
+    try {
+        const inputBuffer = Buffer.from(base64Data, 'base64');
+        const blackAndWhiteBuffer = await sharp(inputBuffer)
+            .flatten({ background: '#ffffff' })
+            .threshold(200)
+            .toColourspace('srgb')
+            .png()
+            .toBuffer();
+        fs.writeFileSync(filename, blackAndWhiteBuffer);
+    } catch (err) {
+        console.warn(`[!] QR recoloring fallback: ${(err as Error)?.message}`);
+        fs.writeFileSync(filename, base64Data, 'base64');
+    }
     console.log(`[+] QR code saved as: ${filename}`);
     console.log(`[i] You can now scan the QR code from the image file: ${filename}`);
 });

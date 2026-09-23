@@ -55,5 +55,46 @@ test('Build & Packaging Integrity Suite', async (t) => {
         assert.ok(content.includes('class QrCodeForm'), 'Must define QrCodeForm');
         assert.ok(content.includes('class LogViewerForm'), 'Must define LogViewerForm');
         assert.ok(content.includes('class SettingsForm'), 'Must define SettingsForm');
+        assert.ok(content.includes('class RoundedButton'), 'Must define RoundedButton with corner radius support');
+        assert.ok(content.includes('RecolorQrToBlack'), 'Must define high-contrast RecolorQrToBlack method');
+    });
+
+    await t.test('QR code recoloring pipeline converts colored pixels to crisp black', async () => {
+        const sharp = require('sharp');
+        // Create a 2x1 test image: Left pixel red (255, 0, 0), right pixel white (255, 255, 255)
+        const redAndWhitePng = await sharp({
+            create: {
+                width: 2,
+                height: 1,
+                channels: 3,
+                background: { r: 255, g: 0, b: 0 }
+            }
+        })
+        .composite([{
+            input: Buffer.from([255, 255, 255]),
+            raw: { width: 1, height: 1, channels: 3 },
+            top: 0,
+            left: 1
+        }])
+        .png()
+        .toBuffer();
+
+        // Process through exact same pipeline as src/index.ts
+        const processed = await sharp(redAndWhitePng)
+            .flatten({ background: '#ffffff' })
+            .threshold(200)
+            .toColourspace('srgb')
+            .raw()
+            .toBuffer();
+
+        // Red pixel (pixel 0, bytes 0-2) must be thresholded to black (0, 0, 0)
+        assert.equal(processed[0], 0, 'Colored/red pixel R must be converted to pure black (0)');
+        assert.equal(processed[1], 0, 'Colored/red pixel G must be converted to pure black (0)');
+        assert.equal(processed[2], 0, 'Colored/red pixel B must be converted to pure black (0)');
+
+        // White pixel (pixel 1, bytes 3-5) must remain pure white (255, 255, 255)
+        assert.equal(processed[3], 255, 'White pixel R must remain pure white (255)');
+        assert.equal(processed[4], 255, 'White pixel G must remain pure white (255)');
+        assert.equal(processed[5], 255, 'White pixel B must remain pure white (255)');
     });
 });

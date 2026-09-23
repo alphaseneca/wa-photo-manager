@@ -1324,18 +1324,31 @@ public static class Program
     [STAThread]
     public static void Main()
     {
-        bool createdNew;
-        mutex = new Mutex(true, "Global\\WhatsAppPhotoManagerTrayAppMutex", out createdNew);
-
-        if (!createdNew)
+        try
         {
-            MessageBox.Show("WhatsApp Photo Manager is already running in the system tray.", "Already Running", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
+            bool createdNew;
+            mutex = new Mutex(true, "Local\\WhatsAppPhotoManagerTrayAppMutex", out createdNew);
 
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
-        
-        Application.Run(new TrayApplicationContext());
+            if (!createdNew)
+            {
+                MessageBox.Show("WhatsApp Photo Manager is already running in the system tray.", "Already Running", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            
+            Application.Run(new TrayApplicationContext());
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                string log = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup_error.log");
+                File.AppendAllText(log, "[" + DateTime.Now + "] " + ex.ToString() + Environment.NewLine);
+            }
+            catch {}
+            MessageBox.Show("Fatal Startup Error:\n" + ex.Message, "WhatsApp Photo Manager Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 }

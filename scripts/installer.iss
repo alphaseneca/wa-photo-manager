@@ -57,6 +57,49 @@ Type: filesandordirs; Name: "{app}\app"
 Type: filesandordirs; Name: "{app}\chrome"
 
 [Code]
+// Clean installation & upgrade routine:
+// When upgrading over an existing version, terminate running processes and
+// purge old code/binaries while strictly preserving user configuration, session, and downloads.
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  AppDir: string;
+  ErrorCode: Integer;
+begin
+  if CurStep = ssInstall then
+  begin
+    AppDir := ExpandConstant('{app}');
+    
+    // 1. Terminate any currently running bot/launcher instances before replacing files
+    Exec('taskkill.exe', '/F /IM whatsapp-photo-manager.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
+    Sleep(500);
+
+    // 2. If upgrading an existing installation, purge old application code while strictly preserving user data
+    if DirExists(AppDir) then
+    begin
+      // Purge old app code & node_modules so no obsolete files remain
+      if DirExists(AppDir + '\app') then
+      begin
+        DelTree(AppDir + '\app', True, True, True);
+      end;
+      
+      // Purge old chrome bundle so fresh version extracts cleanly
+      if DirExists(AppDir + '\chrome') then
+      begin
+        DelTree(AppDir + '\chrome', True, True, True);
+      end;
+
+      // Clean up old log files and temporary QR images
+      DeleteFile(AppDir + '\*.log');
+      DeleteFile(AppDir + '\qr_code_*.png');
+
+      // Note:
+      // - config.json is NOT deleted (user configuration preserved)
+      // - downloads\ is NOT deleted (user photos preserved)
+      // - _IGNORE_*\ is NOT deleted (WhatsApp session preserved so user stays logged in)
+    end;
+  end;
+end;
+
 // Clean uninstallation: Terminate running background instances first
 function InitializeUninstall(): Boolean;
 var

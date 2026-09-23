@@ -13,14 +13,11 @@ if (!fs.existsSync(pngPath)) {
 async function generateIco() {
     const inputBuf = fs.readFileSync(pngPath);
 
-    // Generate valid PNG buffers for standard Windows icon sizes
+    // Generate valid PNG buffers for standard Windows icon sizes with transparency preserved
     const png256 = await sharp(inputBuf).resize(256, 256).png().toBuffer();
     const png48 = await sharp(inputBuf).resize(48, 48).png().toBuffer();
     const png32 = await sharp(inputBuf).resize(32, 32).png().toBuffer();
     const png16 = await sharp(inputBuf).resize(16, 16).png().toBuffer();
-
-    // Ensure the source png is also a real PNG format
-    fs.writeFileSync(pngPath, png256);
 
     const images = [
         { size: 16, buf: png16 },
@@ -44,7 +41,7 @@ async function generateIco() {
         entry.writeUInt8(0, 2); // color count
         entry.writeUInt8(0, 3); // reserved
         entry.writeUInt16LE(1, 4); // color planes
-        entry.writeUInt16LE(32, 6); // bits per pixel
+        entry.writeUInt16LE(32, 6); // bits per pixel (32 = 8-bit RGBA)
         entry.writeUInt32LE(img.buf.length, 8); // size of image data
         entry.writeUInt32LE(offset, 12); // offset in file
         entries.push(entry);
@@ -53,7 +50,7 @@ async function generateIco() {
 
     const ico = Buffer.concat([header, ...entries, ...images.map(i => i.buf)]);
     fs.writeFileSync(icoPath, ico);
-    console.log('✓ Valid multi-resolution Windows ICO generated successfully at:', icoPath);
+    console.log('✓ Valid 32-bit transparent Windows ICO generated at:', icoPath);
 }
 
 generateIco().catch(err => {

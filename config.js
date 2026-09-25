@@ -56,12 +56,21 @@ const defaultConfig = {
     
     BOT_CONFIG: {
         sessionId: 'photo-manager-session',      // Unique session identifier
-        authTimeout: 120,                        // QR code scan timeout (seconds)
-        qrTimeout: 120,                          // QR code generation timeout (seconds)
+        useChrome: true,                         // Recommended by wa-automate for reliable multi-device support
+        authTimeout: 0,                          // 0 = Wait indefinitely for scan/auth without abrupt timeout disconnect
+        qrTimeout: 0,                            // 0 = Wait indefinitely for QR generation
+        protocolTimeout: 0,                      // 0 = Wait indefinitely for CDP commands during heavy multi-device chat sync
         multiDevice: true,                       // Enable WhatsApp multi-device support
+        safeMode: true,                          // Official wa-automate safeMode for reliable injection
         headless: true,                          // Run browser in background (set false to debug or re-scan QR)
-        deleteSessionDataOnLogout: true,         // Auto-cleanup session data on logout
+        deleteSessionDataOnLogout: false,        // Keep session data intact; avoids wa-automate eventMode deadlock
+        killClientOnLogout: false,               // Prevents wa-automate forcing eventMode
+        eventMode: false,                        // Register listeners on-demand (e.g. onMessage) instead of exposing 27 listeners simultaneously
         waitForRipeSession: true,                // Wait for session to be fully ready before injection
+        restartOnCrash: true,                    // Auto-restart browser on unexpected page termination
+        inDocker: true,                          // Activates native customUserAgent support in wa-automate without node_modules patches
+        sessionDataPath: '.',                    // Store session data in application working directory
+        customUserAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', // Modern Chrome user agent supported natively by wa-automate
     },
 
     // ========================================
@@ -233,7 +242,7 @@ if (bundledChrome) {
 const jsonConfigPath = path.join(process.cwd(), 'config.json');
 if (fs.existsSync(jsonConfigPath)) {
     try {
-        const fileContent = fs.readFileSync(jsonConfigPath, 'utf8');
+        const fileContent = fs.readFileSync(jsonConfigPath, 'utf8').replace(/^\uFEFF/, '');
         const overrides = JSON.parse(fileContent);
         
         if (overrides.ALLOWED_NUMBERS) {

@@ -102,7 +102,7 @@ flowchart TD
 git clone https://github.com/alphaseneca/wa-photo-manager.git
 cd wa-photo-manager
 
-# 2. Install dependencies (automatically runs postinstall compatibility patch)
+# 2. Install dependencies
 npm ci
 
 # 3. Compile TypeScript
@@ -272,8 +272,7 @@ wa-photo-manager/
 │   ├── Launcher.cs             # Native C# Windows tray launcher & GUI dialogs
 │   ├── build-package.ps1       # Packaging automation script
 │   ├── installer.iss           # Inno Setup 6 compilation script
-│   ├── png-to-ico.js           # Multi-resolution ICO generator
-│   └── postinstall.js          # Puppeteer & User-Agent compatibility patch
+│   └── png-to-ico.js           # Multi-resolution ICO generator
 ├── src/
 │   ├── index.ts                # Application lifecycle & WhatsApp event loop
 │   └── ...

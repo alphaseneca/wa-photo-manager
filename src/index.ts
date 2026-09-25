@@ -67,6 +67,22 @@ function getPhotoCount(folderPath: string): number {
 // ========================================
 // QR CODE EVENT HANDLER
 // ========================================
+function cleanupQrCodeFile(sessionId?: string) {
+    const filenames = [
+        path.join(process.cwd(), `qr_code${sessionId ? '_' + sessionId : ''}.png`),
+        path.join(process.cwd(), `qr_code_${config.BOT_CONFIG.sessionId || 'photo-manager-session'}.png`),
+        path.join(process.cwd(), 'qr_code.png')
+    ];
+    filenames.forEach(file => {
+        try {
+            if (fs.existsSync(file)) {
+                fs.unlinkSync(file);
+                console.log(`[+] Authentication successful. Cleaned up QR code: ${path.basename(file)}`);
+            }
+        } catch {}
+    });
+}
+
 // Listen for QR code generation and save as image file for scanning
 ev.on('qr.**', async (qrcode, sessionId) => {
     const base64Data = qrcode.replace('data:image/png;base64,', '');
@@ -75,8 +91,8 @@ ev.on('qr.**', async (qrcode, sessionId) => {
         const inputBuffer = Buffer.from(base64Data, 'base64');
         const blackAndWhiteBuffer = await sharp(inputBuffer)
             .flatten({ background: '#ffffff' })
-            .threshold(200)
-            .toColourspace('srgb')
+            .grayscale()
+            .threshold(180)
             .png()
             .toBuffer();
         fs.writeFileSync(filename, blackAndWhiteBuffer);
@@ -88,14 +104,46 @@ ev.on('qr.**', async (qrcode, sessionId) => {
     console.log(`[i] You can now scan the QR code from the image file: ${filename}`);
 });
 
+// Listen for authentication and chat loading events to dismiss QR immediately
+ev.on('**.**', async (data: any, sessionId: any, namespace: any) => {
+    const text = typeof data === 'string' ? data.toLowerCase() : '';
+    if (text.includes('successfulscan') || text.includes('authenticated') || text.includes('loading your chats')) {
+        cleanupQrCodeFile(typeof sessionId === 'string' ? sessionId : undefined);
+    }
+});
+
 // ========================================
 // MAIN BOT LOGIC
 // ========================================
 create(config.BOT_CONFIG).then(async client => {
+    cleanupQrCodeFile(config.BOT_CONFIG.sessionId);
+    console.log(`[+] WhatsApp authentication complete. Temporary QR dismissed.`);
+
+    // Auto-dismiss WhatsApp Web modal popups (e.g. "What's new") if present
+    try {
+        const page = client.getPage();
+        if (page) {
+            const dismissModals = async () => {
+                await page.evaluate(`
+                    try {
+                        const closeButtons = document.querySelectorAll('header [aria-label="Close"], [data-animate-modal-popup="true"] [aria-label="Close"], button[aria-label="Close"]');
+                        closeButtons.forEach(btn => btn.click());
+                    } catch (e) {}
+                `).catch(() => {});
+            };
+            dismissModals();
+            const dismissInterval = setInterval(dismissModals, 2000);
+            setTimeout(() => clearInterval(dismissInterval), 30000);
+        }
+    } catch {}
+
     // Get main account information
-    const me = await client.getMe();
-    mainAccountId = me._serialized;
-    console.log(`[+] Main account: ${me.pushname || me.name || me.id._serialized}`);
+    const meRes = await client.getMe().catch(() => null) as any;
+    const me = meRes?.me || meRes;
+    const hostNumber = await client.getHostNumber().catch(() => '');
+    mainAccountId = me?._serialized || me?.id?._serialized || (hostNumber ? hostNumber + '@c.us' : null);
+    const displayName = me?.pushname || me?.name || (hostNumber ? '+' + hostNumber : null) || mainAccountId || 'Connected';
+    console.log(`[+] Main account: ${displayName}`);
     console.log(`[+] Authorized numbers: ${ALLOWED_NUMBERS.join(', ')}`);
     console.log(`[+] Photo categories: ${SUBFOLDER_OPTIONS.join(', ')}`);
 
@@ -348,4 +396,7 @@ create(config.BOT_CONFIG).then(async client => {
             await client.sendText(message.from, instructionsMessage);
         }
     });
+}).catch(err => {
+    console.error(`[!] WhatsApp Bot encountered an initialization error:`, err?.message || err);
+    process.exit(1);
 });

@@ -2,12 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-09-25
+
+### Improvements & Fixes
+- **Modern UI & Toast Notifications**: Replaced default Windows balloon tooltips with styled modern dark toasts, custom buttons, and smooth animations.
+- **Enhanced QR Code Recognition**: Upgraded Sharp threshold and grayscale pipeline to render high-contrast black QR codes for faster scanning.
+- **Single-Instance IPC Wakeup**: Restoring or activating an already-running tray instance now smoothly brings the primary window to the foreground via named events.
+- **Robust Upgrade & Uninstall Routines**:
+  - Installer purge routine terminates running instances and replaces stale code while preserving user session, configuration, and downloads.
+  - Uninstaller includes interactive prompt to choose whether to retain or purge media downloads.
+- **Windows 11 Compatibility**: Included standalone `wmic.exe` shim to maintain process inspection compatibility on modern Windows 11 builds.
+- **Cross-Platform Test Runner**: Replaced shell-dependent globbing with `scripts/test-runner.js` supporting Node 18, 20, and 22 across Linux and Windows.
+
 ## [1.0.0] - 2026-09-22
 
 ### Initial Release
 
-#### Features
-- **WhatsApp Web Integration**: Connects to WhatsApp Web using modern Puppeteer (v24+) and an automated user-agent compatibility patch (`scripts/postinstall.js`).
+- **WhatsApp Web Integration**: Connects to WhatsApp Web using modern Puppeteer (v24+) and native user-agent configuration.
 - **Windows System Tray GUI Launcher**:
   - Background execution (`scripts/Launcher.cs` compiled into `whatsapp-photo-manager.exe`) without command window popups.
   - Interactive system tray icon with start/stop, settings, log viewer, and folder shortcut.

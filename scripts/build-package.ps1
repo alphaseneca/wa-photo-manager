@@ -39,7 +39,7 @@ if (-not (Test-Path $nodeDest)) {
 $chromeDest = Join-Path $appDestDir "chrome"
 if (-not (Test-Path $chromeDest)) {
     Write-Host "[4/7] Downloading Chrome browser dependency (this may take a minute)..." -ForegroundColor Yellow
-    npx puppeteer browsers install chrome --path $chromeDest
+    npx --yes puppeteer browsers install chrome --path $chromeDest
     Write-Host "[+] Chrome downloaded and bundled successfully." -ForegroundColor Green
 } else {
     Write-Host "[4/7] Chrome browser already bundled, skipping download." -ForegroundColor Green
@@ -56,9 +56,17 @@ $launcherDest = Join-Path $appDestDir "whatsapp-photo-manager.exe"
 & $csc /out:$launcherDest /target:winexe "/win32icon:$(Join-Path $workspaceDir 'assets\app-logo.ico')" $launcherSource
 Write-Host "[+] whatsapp-photo-manager.exe compiled successfully." -ForegroundColor Green
 
+# 5b. Compile Windows 11 wmic.exe compatibility shim
+$wmicSource = Join-Path $workspaceDir "scripts\wmic.cs"
+$wmicDest = Join-Path $appDestDir "wmic.exe"
+& $csc /r:System.Management.dll /out:$wmicDest /target:exe $wmicSource
+Write-Host "[+] wmic.exe compatibility shim compiled successfully." -ForegroundColor Green
+
 # 6. Copy Application Files (overwrite existing)
-Write-Host "[6/7] Copying compiled application files..." -ForegroundColor Yellow
-Copy-Item -Path (Join-Path $workspaceDir "dist") -Destination (Join-Path $appDestDir "app\dist") -Recurse -Force
+if (Test-Path (Join-Path $appDestDir "app\dist")) {
+    Remove-Item -Path (Join-Path $appDestDir "app\dist") -Recurse -Force
+}
+Copy-Item -Path (Join-Path $workspaceDir "dist") -Destination (Join-Path $appDestDir "app") -Recurse -Force
 Copy-Item -Path (Join-Path $workspaceDir "package.json") -Destination (Join-Path $appDestDir "app\package.json") -Force
 Copy-Item -Path (Join-Path $workspaceDir "config.js") -Destination (Join-Path $appDestDir "config.js") -Force
 Copy-Item -Path (Join-Path $workspaceDir "README.md") -Destination (Join-Path $appDestDir "README.md") -Force

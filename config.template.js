@@ -61,11 +61,21 @@ const defaultConfig = {
 	// ========================================
 	BOT_CONFIG: {
 		sessionId: "photo-manager-session",
-		authTimeout: 120,
-		qrTimeout: 120,
+		useChrome: true,
+		authTimeout: 0,
+		qrTimeout: 0,
+		protocolTimeout: 0,
 		multiDevice: true,
+		safeMode: true,
 		headless: true,
-		deleteSessionDataOnLogout: true,
+		deleteSessionDataOnLogout: false,
+		killClientOnLogout: false,
+		eventMode: false,
+		waitForRipeSession: true,
+		restartOnCrash: true,
+		inDocker: true,
+		sessionDataPath: '.',
+		customUserAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
 	},
 
 	// ========================================
@@ -211,7 +221,7 @@ if (bundledChrome) {
 const jsonConfigPath = path.join(process.cwd(), 'config.json');
 if (fs.existsSync(jsonConfigPath)) {
     try {
-        const fileContent = fs.readFileSync(jsonConfigPath, 'utf8');
+        const fileContent = fs.readFileSync(jsonConfigPath, 'utf8').replace(/^\uFEFF/, '');
         const overrides = JSON.parse(fileContent);
         
         if (overrides.ALLOWED_NUMBERS) {

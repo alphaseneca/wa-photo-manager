@@ -56,6 +56,13 @@ test('Build & Packaging Integrity Suite', async (t) => {
         assert.ok(content.includes('class LogViewerForm'), 'Must define LogViewerForm');
         assert.ok(content.includes('class SettingsForm'), 'Must define SettingsForm');
         assert.ok(content.includes('class RoundedButton'), 'Must define RoundedButton with corner radius support');
+        assert.ok(content.includes('class AlreadyRunningDialog'), 'Must define AlreadyRunningDialog');
+        assert.ok(content.includes('class ModernMessageBox'), 'Must define ModernMessageBox');
+        assert.ok(content.includes('class ModernToastNotification'), 'Must define ModernToastNotification');
+        assert.ok(!content.includes('ShowBalloonTip'), 'Must not contain any legacy unstyled ShowBalloonTip calls');
+        assert.ok(content.includes('WhatsAppPhotoManagerWakeEvent'), 'Must define IPC wake event');
+        assert.ok(content.includes('WhatsAppPhotoManagerPingEvent'), 'Must define IPC ping event');
+        assert.ok(!/(?<!Modern)MessageBox\.Show/.test(content), 'Must not contain any legacy unstyled MessageBox.Show calls');
         assert.ok(content.includes('RecolorQrToBlack'), 'Must define high-contrast RecolorQrToBlack method');
     });
 

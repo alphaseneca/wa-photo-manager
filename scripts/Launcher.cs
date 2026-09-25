@@ -86,7 +86,7 @@ public class AppConfig
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Error loading config.json: " + ex.Message, "Configuration Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            ModernMessageBox.Show("Error loading config.json: " + ex.Message, "Configuration Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         return config;
@@ -131,12 +131,55 @@ public class AppConfig
 
             sb.AppendLine("}");
 
-            File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+            File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Error saving config.json: " + ex.Message, "Configuration Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ModernMessageBox.Show("Error saving config.json: " + ex.Message, "Configuration Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+}
+
+public static class WindowHelper
+{
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    private const int SW_RESTORE = 9;
+
+    public static void ForceForeground(Form form)
+    {
+        if (form == null || form.IsDisposed) return;
+        try
+        {
+            if (form.InvokeRequired)
+            {
+                form.BeginInvoke(new Action(() => ForceForeground(form)));
+                return;
+            }
+
+            if (!form.Visible)
+            {
+                form.Show();
+            }
+            if (form.WindowState == FormWindowState.Minimized)
+            {
+                form.WindowState = FormWindowState.Normal;
+            }
+
+            ShowWindowAsync(form.Handle, SW_RESTORE);
+            BringWindowToTop(form.Handle);
+            SetForegroundWindow(form.Handle);
+            form.Activate();
+            form.BringToFront();
+        }
+        catch {}
     }
 }
 
@@ -154,14 +197,25 @@ public static class UITheme
 
     public static Button CreateButton(string text, Color bg, Color fg, int width = 110, int height = 34, bool isBold = false)
     {
-        RoundedButton btn = new RoundedButton();
-        btn.Text = text;
-        btn.BackColor = bg;
-        btn.ForeColor = fg;
-        btn.Font = new Font("Segoe UI", 9.25F, isBold ? FontStyle.Bold : FontStyle.Regular);
-        btn.Size = new Size(width, height);
-        btn.CornerRadius = 6;
-        return btn;
+        try
+        {
+            Program.LogLifecycle("CreateButton start: " + text);
+            RoundedButton btn = new RoundedButton();
+            Program.LogLifecycle("CreateButton: RoundedButton constructed");
+            btn.Text = text;
+            btn.BackColor = bg;
+            btn.ForeColor = fg;
+            btn.Font = new Font("Segoe UI", 9.25F, isBold ? FontStyle.Bold : FontStyle.Regular);
+            btn.Size = new Size(width, height);
+            btn.CornerRadius = 6;
+            Program.LogLifecycle("CreateButton end: " + text);
+            return btn;
+        }
+        catch (Exception ex)
+        {
+            Program.LogLifecycle("CreateButton ERROR for " + text + ": " + ex.ToString());
+            throw;
+        }
     }
 }
 
@@ -350,6 +404,797 @@ public class RoundedButton : Button
             textColor,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine
         );
+    }
+}
+
+public class ModernMessageBox : Form
+{
+    public ModernMessageBox(string message, string title, MessageBoxButtons buttons, MessageBoxIcon icon)
+    {
+        InitializeDialog(message, title, buttons, icon);
+    }
+
+    public static DialogResult Show(string message, string title = "WhatsApp Photo Manager", MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxIcon icon = MessageBoxIcon.None)
+    {
+        using (ModernMessageBox box = new ModernMessageBox(message, title, buttons, icon))
+        {
+            return box.ShowDialog();
+        }
+    }
+
+    public static DialogResult Show(IWin32Window owner, string message, string title = "WhatsApp Photo Manager", MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxIcon icon = MessageBoxIcon.None)
+    {
+        using (ModernMessageBox box = new ModernMessageBox(message, title, buttons, icon))
+        {
+            return box.ShowDialog(owner);
+        }
+    }
+
+    private void InitializeDialog(string message, string title, MessageBoxButtons buttons, MessageBoxIcon icon)
+    {
+        this.Text = title;
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        this.MaximizeBox = false;
+        this.MinimizeBox = false;
+        this.StartPosition = FormStartPosition.CenterScreen;
+        this.BackColor = Color.White;
+        this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+        this.Icon = Program.AppIcon;
+        this.ShowInTaskbar = false;
+
+        try
+        {
+            if (icon == MessageBoxIcon.Error || icon == MessageBoxIcon.Stop || icon == MessageBoxIcon.Hand)
+                System.Media.SystemSounds.Hand.Play();
+            else if (icon == MessageBoxIcon.Warning || icon == MessageBoxIcon.Exclamation)
+                System.Media.SystemSounds.Exclamation.Play();
+            else
+                System.Media.SystemSounds.Asterisk.Play();
+        }
+        catch {}
+
+        Color headerColor = UITheme.WhatsAppDarkTeal;
+        Color accentColor = UITheme.WhatsAppTeal;
+
+        if (icon == MessageBoxIcon.Error || icon == MessageBoxIcon.Stop || icon == MessageBoxIcon.Hand)
+        {
+            headerColor = Color.FromArgb(185, 28, 28);
+            accentColor = Color.FromArgb(220, 38, 38);
+        }
+        else if (icon == MessageBoxIcon.Warning || icon == MessageBoxIcon.Exclamation)
+        {
+            headerColor = Color.FromArgb(180, 83, 9);
+            accentColor = Color.FromArgb(217, 119, 6);
+        }
+
+        int dialogWidth = 480;
+        int textWidth = 370;
+        Size textSize;
+        using (Graphics g = this.CreateGraphics())
+        {
+            textSize = TextRenderer.MeasureText(g, message, new Font("Segoe UI", 9.25F), new Size(textWidth, 1000), TextFormatFlags.WordBreak);
+        }
+        int contentHeight = Math.Max(70, textSize.Height + 24);
+        int dialogHeight = 50 + contentHeight + 56;
+
+        this.ClientSize = new Size(dialogWidth, dialogHeight);
+
+        // Header Panel
+        Panel pnlHeader = new Panel()
+        {
+            Dock = DockStyle.Top,
+            Height = 48,
+            BackColor = headerColor,
+            Padding = new Padding(16, 12, 16, 12)
+        };
+        Label lblTitle = new Label()
+        {
+            Text = title,
+            Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+            ForeColor = Color.White,
+            Location = new Point(16, 13),
+            AutoSize = true
+        };
+        pnlHeader.Controls.Add(lblTitle);
+
+        // Footer Panel
+        Panel pnlFooter = new Panel()
+        {
+            Dock = DockStyle.Bottom,
+            Height = 54,
+            BackColor = Color.FromArgb(248, 250, 252)
+        };
+        pnlFooter.Paint += (s, e) => {
+            using (Pen p = new Pen(UITheme.BorderColor, 1))
+            {
+                e.Graphics.DrawLine(p, 0, 0, pnlFooter.Width, 0);
+            }
+        };
+
+        if (buttons == MessageBoxButtons.OK)
+        {
+            Button btnOk = UITheme.CreateButton("OK", accentColor, Color.White, width: 88, height: 32, isBold: true);
+            btnOk.Location = new Point(dialogWidth - 104, 11);
+            btnOk.Click += (s, e) => { this.DialogResult = DialogResult.OK; this.Close(); };
+            pnlFooter.Controls.Add(btnOk);
+            this.AcceptButton = btnOk;
+            this.CancelButton = btnOk;
+        }
+        else if (buttons == MessageBoxButtons.OKCancel)
+        {
+            Button btnCancel = UITheme.CreateButton("Cancel", Color.White, UITheme.TextPrimary, width: 88, height: 32);
+            btnCancel.FlatAppearance.BorderColor = UITheme.BorderColor;
+            btnCancel.FlatAppearance.BorderSize = 1;
+            btnCancel.Location = new Point(dialogWidth - 104, 11);
+            btnCancel.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
+
+            Button btnOk = UITheme.CreateButton("OK", accentColor, Color.White, width: 88, height: 32, isBold: true);
+            btnOk.Location = new Point(dialogWidth - 200, 11);
+            btnOk.Click += (s, e) => { this.DialogResult = DialogResult.OK; this.Close(); };
+
+            pnlFooter.Controls.Add(btnOk);
+            pnlFooter.Controls.Add(btnCancel);
+            this.AcceptButton = btnOk;
+            this.CancelButton = btnCancel;
+        }
+        else if (buttons == MessageBoxButtons.YesNo)
+        {
+            Button btnNo = UITheme.CreateButton("No", Color.White, UITheme.TextPrimary, width: 88, height: 32);
+            btnNo.FlatAppearance.BorderColor = UITheme.BorderColor;
+            btnNo.FlatAppearance.BorderSize = 1;
+            btnNo.Location = new Point(dialogWidth - 104, 11);
+            btnNo.Click += (s, e) => { this.DialogResult = DialogResult.No; this.Close(); };
+
+            Button btnYes = UITheme.CreateButton("Yes", accentColor, Color.White, width: 88, height: 32, isBold: true);
+            btnYes.Location = new Point(dialogWidth - 200, 11);
+            btnYes.Click += (s, e) => { this.DialogResult = DialogResult.Yes; this.Close(); };
+
+            pnlFooter.Controls.Add(btnYes);
+            pnlFooter.Controls.Add(btnNo);
+            this.AcceptButton = btnYes;
+            this.CancelButton = btnNo;
+        }
+
+        // Content Panel
+        Panel pnlContent = new Panel()
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.White
+        };
+
+        PictureBox picIcon = new PictureBox()
+        {
+            Location = new Point(20, 16),
+            Size = new Size(38, 38),
+            SizeMode = PictureBoxSizeMode.CenterImage
+        };
+        picIcon.Paint += (s, e) => {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (SolidBrush bgBrush = new SolidBrush(accentColor))
+            {
+                g.FillEllipse(bgBrush, 1, 1, 35, 35);
+            }
+            string symbol = "i";
+            if (icon == MessageBoxIcon.Error || icon == MessageBoxIcon.Stop || icon == MessageBoxIcon.Hand)
+                symbol = "✕";
+            else if (icon == MessageBoxIcon.Warning || icon == MessageBoxIcon.Exclamation)
+                symbol = "!";
+            else if (icon == MessageBoxIcon.Question)
+                symbol = "?";
+
+            using (Font f = new Font("Segoe UI", 12.5F, FontStyle.Bold))
+            using (SolidBrush fgBrush = new SolidBrush(Color.White))
+            {
+                StringFormat sf = new StringFormat()
+                {
+                    Alignment = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center
+                };
+                g.DrawString(symbol, f, fgBrush, new RectangleF(0, 0, 38, 38), sf);
+            }
+        };
+
+        Label lblMessage = new Label()
+        {
+            Text = message,
+            Font = new Font("Segoe UI", 9.25F),
+            ForeColor = UITheme.TextPrimary,
+            Location = new Point(72, 16),
+            Size = new Size(textWidth, contentHeight),
+            AutoEllipsis = false
+        };
+
+        pnlContent.Controls.Add(picIcon);
+        pnlContent.Controls.Add(lblMessage);
+
+        this.Controls.Add(pnlContent);
+        this.Controls.Add(pnlFooter);
+        this.Controls.Add(pnlHeader);
+    }
+}
+
+public class AlreadyRunningDialog : Form
+{
+    public const string WAKE_EVENT_NAME = "Local\\WhatsAppPhotoManagerWakeEvent";
+    public const string PING_EVENT_NAME = "Local\\WhatsAppPhotoManagerPingEvent";
+
+    public AlreadyRunningDialog()
+    {
+        InitializeComponent();
+        try
+        {
+            System.Media.SystemSounds.Asterisk.Play();
+        }
+        catch {}
+
+        SignalPrimaryPing();
+    }
+
+    private void InitializeComponent()
+    {
+        this.Text = "WhatsApp Photo Manager";
+        this.Size = new Size(500, 290);
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        this.MaximizeBox = false;
+        this.MinimizeBox = false;
+        this.StartPosition = FormStartPosition.CenterScreen;
+        this.BackColor = Color.White;
+        this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+        this.Icon = Program.AppIcon;
+        this.ShowInTaskbar = true;
+
+        // Top Header
+        Panel pnlHeader = new Panel()
+        {
+            Dock = DockStyle.Top,
+            Height = 62,
+            BackColor = UITheme.WhatsAppDarkTeal,
+            Padding = new Padding(18, 10, 18, 10)
+        };
+
+        Label lblHeaderTitle = new Label()
+        {
+            Text = "WhatsApp Photo Manager",
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Location = new Point(18, 10),
+            AutoSize = true
+        };
+
+        Label lblHeaderSub = new Label()
+        {
+            Text = "Background service is active and running",
+            ForeColor = Color.FromArgb(209, 250, 229),
+            Font = new Font("Segoe UI", 8.75F),
+            Location = new Point(19, 34),
+            AutoSize = true
+        };
+
+        pnlHeader.Controls.Add(lblHeaderTitle);
+        pnlHeader.Controls.Add(lblHeaderSub);
+
+        // Bottom Footer
+        Panel pnlFooter = new Panel()
+        {
+            Dock = DockStyle.Bottom,
+            Height = 56,
+            BackColor = Color.FromArgb(248, 250, 252)
+        };
+
+        pnlFooter.Paint += (s, e) => {
+            using (Pen p = new Pen(UITheme.BorderColor, 1))
+            {
+                e.Graphics.DrawLine(p, 0, 0, pnlFooter.Width, 0);
+            }
+        };
+
+        Button btnGotIt = UITheme.CreateButton("Got It", Color.White, UITheme.TextPrimary, width: 90, height: 34);
+        btnGotIt.FlatAppearance.BorderColor = UITheme.BorderColor;
+        btnGotIt.FlatAppearance.BorderSize = 1;
+        btnGotIt.Location = new Point(380, 11);
+        btnGotIt.Click += (s, e) => this.Close();
+
+        Button btnOpenLogs = UITheme.CreateButton("View Live Logs", UITheme.WhatsAppTeal, Color.White, width: 135, height: 34, isBold: true);
+        btnOpenLogs.Location = new Point(235, 11);
+        btnOpenLogs.Click += (s, e) => {
+            SignalPrimaryWake();
+            this.Close();
+        };
+
+        pnlFooter.Controls.Add(btnOpenLogs);
+        pnlFooter.Controls.Add(btnGotIt);
+
+        // Center Content Panel
+        Panel pnlContent = new Panel()
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.White
+        };
+
+        PictureBox picLogo = new PictureBox()
+        {
+            Location = new Point(22, 18),
+            Size = new Size(52, 52),
+            SizeMode = PictureBoxSizeMode.Zoom
+        };
+
+        try
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string logoPng = Path.Combine(baseDir, "app-logo.png");
+            if (!File.Exists(logoPng))
+            {
+                logoPng = Path.Combine(baseDir, "assets", "app-logo.png");
+            }
+            if (File.Exists(logoPng))
+            {
+                using (Image img = Image.FromFile(logoPng))
+                {
+                    picLogo.Image = new Bitmap(img);
+                }
+            }
+            else if (Program.AppIcon != null)
+            {
+                picLogo.Image = Program.AppIcon.ToBitmap();
+            }
+        }
+        catch {}
+
+        Label lblHeadline = new Label()
+        {
+            Text = "Application is Already Running",
+            Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+            ForeColor = UITheme.TextPrimary,
+            Location = new Point(88, 16),
+            AutoSize = true
+        };
+
+        Label lblDesc = new Label()
+        {
+            Text = "WhatsApp Photo Manager is already active in your Windows system tray and monitoring chats.",
+            Font = new Font("Segoe UI", 9F),
+            ForeColor = UITheme.TextSecondary,
+            Location = new Point(88, 38),
+            Size = new Size(380, 36)
+        };
+
+        Panel pnlTipCard = new Panel()
+        {
+            Location = new Point(88, 76),
+            Size = new Size(382, 44),
+            BackColor = Color.FromArgb(240, 253, 250)
+        };
+        pnlTipCard.Paint += (s, e) => {
+            using (Pen p = new Pen(Color.FromArgb(153, 246, 228), 1))
+            {
+                e.Graphics.DrawRectangle(p, 0, 0, pnlTipCard.Width - 1, pnlTipCard.Height - 1);
+            }
+        };
+
+        Label lblTip = new Label()
+        {
+            Text = "Tip: Look for the camera icon near your taskbar clock. Right-click it anytime for settings, logs, or to link devices.",
+            Font = new Font("Segoe UI", 8.25F),
+            ForeColor = Color.FromArgb(17, 94, 89),
+            Location = new Point(8, 6),
+            Size = new Size(366, 32)
+        };
+        pnlTipCard.Controls.Add(lblTip);
+
+        pnlContent.Controls.Add(picLogo);
+        pnlContent.Controls.Add(lblHeadline);
+        pnlContent.Controls.Add(lblDesc);
+        pnlContent.Controls.Add(pnlTipCard);
+
+        this.Controls.Add(pnlContent);
+        this.Controls.Add(pnlFooter);
+        this.Controls.Add(pnlHeader);
+
+        this.AcceptButton = btnOpenLogs;
+        this.CancelButton = btnGotIt;
+    }
+
+    public static void SignalPrimaryWake()
+    {
+        try
+        {
+            using (EventWaitHandle handle = EventWaitHandle.OpenExisting(WAKE_EVENT_NAME))
+            {
+                handle.Set();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Wake event error: " + ex.Message);
+        }
+    }
+
+    public static void SignalPrimaryPing()
+    {
+        try
+        {
+            using (EventWaitHandle handle = EventWaitHandle.OpenExisting(PING_EVENT_NAME))
+            {
+                handle.Set();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Ping event error: " + ex.Message);
+        }
+    }
+}
+
+public enum ToastType
+{
+    Info,
+    Success,
+    Warning,
+    Error
+}
+
+public class ModernToastNotification : Form
+{
+    private static ModernToastNotification _currentToast = null;
+    private static readonly object _lockObj = new object();
+
+    private System.Windows.Forms.Timer animTimer;
+    private System.Windows.Forms.Timer stayTimer;
+    private int targetX;
+    private int targetY;
+    private int startY;
+    private bool isExiting = false;
+    private bool isHovered = false;
+    private Action clickAction;
+
+    protected override bool ShowWithoutActivation
+    {
+        get { return true; }
+    }
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            CreateParams cp = base.CreateParams;
+            cp.ExStyle |= 0x08000000; // WS_EX_NOACTIVATE
+            cp.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW
+            cp.ExStyle |= 0x00000008; // WS_EX_TOPMOST
+            return cp;
+        }
+    }
+
+    public static void Show(string title, string message, ToastType type = ToastType.Info, Action onClick = null, int durationMs = 4500)
+    {
+        try
+        {
+            if (Application.OpenForms.Count > 0 && Application.OpenForms[0].InvokeRequired)
+            {
+                Application.OpenForms[0].BeginInvoke(new Action(() => Show(title, message, type, onClick, durationMs)));
+                return;
+            }
+
+            lock (_lockObj)
+            {
+                if (_currentToast != null && !_currentToast.IsDisposed)
+                {
+                    _currentToast.CloseImmediately();
+                }
+
+                _currentToast = new ModernToastNotification(title, message, type, onClick, durationMs);
+                _currentToast.Show();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Error showing toast: " + ex.Message);
+        }
+    }
+
+    public ModernToastNotification(string title, string message, ToastType type, Action onClick, int durationMs)
+    {
+        this.clickAction = onClick;
+
+        this.FormBorderStyle = FormBorderStyle.None;
+        this.StartPosition = FormStartPosition.Manual;
+        this.ShowInTaskbar = false;
+        this.TopMost = true;
+        this.BackColor = Color.FromArgb(17, 27, 33); // #111B21 (WhatsApp Dark Mode)
+        this.ForeColor = Color.White;
+        this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+        this.Cursor = Cursors.Hand;
+        this.DoubleBuffered = true;
+        this.Opacity = 0.0;
+
+        int toastWidth = 390;
+        int toastHeight = 115;
+        this.Size = new Size(toastWidth, toastHeight);
+
+        Screen targetScreen = Screen.PrimaryScreen;
+        if (targetScreen == null)
+        {
+            targetScreen = Screen.FromPoint(Cursor.Position);
+        }
+        Rectangle workingArea = targetScreen.WorkingArea;
+        targetX = workingArea.Right - toastWidth - 16;
+        targetY = workingArea.Bottom - toastHeight - 16;
+        startY = targetY + 20;
+
+        this.Location = new Point(targetX, startY);
+
+        using (GraphicsPath path = RoundedButton.CreateRoundedRectanglePath(new RectangleF(0, 0, toastWidth, toastHeight), 10f))
+        {
+            this.Region = new Region(path);
+        }
+
+        Color accentColor = UITheme.WhatsAppTeal; // #00A884
+        string badgeText = "\u25CF ACTIVE";
+        Color badgeColor = Color.FromArgb(74, 222, 128); // #4ADE80
+
+        if (type == ToastType.Success)
+        {
+            accentColor = Color.FromArgb(34, 197, 94); // #22C55E
+            badgeText = "\u25CF CONNECTED";
+            badgeColor = Color.FromArgb(34, 197, 94);
+        }
+        else if (type == ToastType.Warning)
+        {
+            accentColor = Color.FromArgb(245, 158, 11); // #F59E0B
+            badgeText = "\u25CF NOTICE";
+            badgeColor = Color.FromArgb(245, 158, 11);
+        }
+        else if (type == ToastType.Error)
+        {
+            accentColor = Color.FromArgb(239, 68, 68); // #EF4444
+            badgeText = "\u25CF ERROR";
+            badgeColor = Color.FromArgb(239, 68, 68);
+        }
+
+        this.Paint += (s, e) => {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            Color currentBorder = isHovered ? accentColor : Color.FromArgb(42, 57, 66); // #2A3942
+            using (Pen borderPen = new Pen(currentBorder, 1))
+            {
+                using (GraphicsPath bPath = RoundedButton.CreateRoundedRectanglePath(new RectangleF(0.5f, 0.5f, toastWidth - 1f, toastHeight - 1f), 10f))
+                {
+                    g.DrawPath(borderPen, bPath);
+                }
+            }
+
+            using (SolidBrush accentBrush = new SolidBrush(accentColor))
+            {
+                g.FillRectangle(accentBrush, 0, 0, 4, toastHeight);
+            }
+        };
+
+        PictureBox picLogo = new PictureBox()
+        {
+            Location = new Point(14, 11),
+            Size = new Size(20, 20),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+        try
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string logoPng = Path.Combine(baseDir, "app-logo.png");
+            if (!File.Exists(logoPng)) logoPng = Path.Combine(baseDir, "assets", "app-logo.png");
+            if (!File.Exists(logoPng)) logoPng = Path.Combine(Directory.GetCurrentDirectory(), "assets", "app-logo.png");
+            if (!File.Exists(logoPng)) logoPng = Path.Combine(Directory.GetCurrentDirectory(), "app-logo.png");
+            if (File.Exists(logoPng))
+            {
+                using (Image img = Image.FromFile(logoPng))
+                {
+                    picLogo.Image = new Bitmap(img);
+                }
+            }
+            else if (Program.AppIcon != null)
+            {
+                picLogo.Image = Program.AppIcon.ToBitmap();
+            }
+        }
+        catch {}
+
+        Label lblApp = new Label()
+        {
+            Text = "WhatsApp Photo Manager",
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(233, 237, 239), // #E9EDEF
+            Location = new Point(38, 12),
+            AutoSize = true,
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+
+        Label lblBadge = new Label()
+        {
+            Text = badgeText,
+            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+            ForeColor = badgeColor,
+            Location = new Point(204, 13),
+            AutoSize = true,
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+
+        Label btnClose = new Label()
+        {
+            Text = "\u2715",
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(134, 150, 160), // #8696A0
+            Location = new Point(toastWidth - 28, 8),
+            Size = new Size(20, 20),
+            TextAlign = ContentAlignment.MiddleCenter,
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+        btnClose.MouseEnter += (s, e) => btnClose.ForeColor = Color.White;
+        btnClose.MouseLeave += (s, e) => btnClose.ForeColor = Color.FromArgb(134, 150, 160);
+        btnClose.Click += (s, e) => CloseWithFade();
+
+        Label lblTitle = new Label()
+        {
+            Text = title,
+            Font = new Font("Segoe UI", 9.75F, FontStyle.Bold),
+            ForeColor = Color.White,
+            Location = new Point(14, 38),
+            Size = new Size(toastWidth - 32, 20),
+            AutoEllipsis = true,
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+
+        Label lblMessage = new Label()
+        {
+            Text = message,
+            Font = new Font("Segoe UI", 8.25F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(209, 215, 219), // #D1D7DB
+            Location = new Point(14, 58),
+            Size = new Size(toastWidth - 32, 32),
+            AutoEllipsis = true,
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+
+        Label lblAction = new Label()
+        {
+            Text = onClick != null ? "Click to view live logs \u2197" : "Active in system tray",
+            Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(0, 168, 132), // WhatsApp Teal
+            Location = new Point(14, 91),
+            AutoSize = true,
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+
+        Control[] interactiveControls = new Control[] { this, picLogo, lblApp, lblBadge, lblTitle, lblMessage, lblAction };
+        foreach (Control c in interactiveControls)
+        {
+            c.Click += (s, e) => {
+                CloseWithFade();
+                if (clickAction != null)
+                {
+                    clickAction();
+                }
+            };
+            c.MouseEnter += (s, e) => {
+                isHovered = true;
+                this.BackColor = Color.FromArgb(24, 34, 41);
+                this.Invalidate();
+                if (stayTimer != null) stayTimer.Stop();
+            };
+            c.MouseLeave += (s, e) => {
+                isHovered = false;
+                this.BackColor = Color.FromArgb(17, 27, 33);
+                this.Invalidate();
+                if (stayTimer != null && !isExiting) stayTimer.Start();
+            };
+        }
+
+        this.Controls.Add(picLogo);
+        this.Controls.Add(lblApp);
+        this.Controls.Add(lblBadge);
+        this.Controls.Add(btnClose);
+        this.Controls.Add(lblTitle);
+        this.Controls.Add(lblMessage);
+        this.Controls.Add(lblAction);
+
+        animTimer = new System.Windows.Forms.Timer();
+        animTimer.Interval = 15;
+        animTimer.Tick += (s, e) => {
+            if (!isExiting)
+            {
+                double nextOpacity = this.Opacity + 0.12;
+                if (nextOpacity >= 0.98)
+                {
+                    this.Opacity = 0.98;
+                    this.Location = new Point(targetX, targetY);
+                    animTimer.Stop();
+                    stayTimer.Start();
+                }
+                else
+                {
+                    this.Opacity = nextOpacity;
+                    int curY = this.Location.Y;
+                    int step = Math.Max(1, (curY - targetY) / 3);
+                    this.Location = new Point(targetX, curY - step);
+                }
+            }
+            else
+            {
+                double nextOpacity = this.Opacity - 0.15;
+                if (nextOpacity <= 0)
+                {
+                    animTimer.Stop();
+                    this.Close();
+                }
+                else
+                {
+                    this.Opacity = nextOpacity;
+                }
+            }
+        };
+
+        stayTimer = new System.Windows.Forms.Timer();
+        stayTimer.Interval = durationMs;
+        stayTimer.Tick += (s, e) => {
+            stayTimer.Stop();
+            CloseWithFade();
+        };
+
+        animTimer.Start();
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        this.Location = new Point(targetX, startY);
+    }
+
+    private void CloseWithFade()
+    {
+        if (isExiting) return;
+        isExiting = true;
+        if (stayTimer != null)
+        {
+            stayTimer.Stop();
+            stayTimer.Dispose();
+        }
+        if (animTimer != null)
+        {
+            animTimer.Start();
+        }
+        else
+        {
+            this.Close();
+        }
+    }
+
+    public void CloseImmediately()
+    {
+        isExiting = true;
+        if (stayTimer != null) { stayTimer.Stop(); stayTimer.Dispose(); }
+        if (animTimer != null) { animTimer.Stop(); animTimer.Dispose(); }
+        this.Close();
+        this.Dispose();
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        base.OnFormClosed(e);
+        if (stayTimer != null) { stayTimer.Dispose(); stayTimer = null; }
+        if (animTimer != null) { animTimer.Dispose(); animTimer = null; }
+        lock (_lockObj)
+        {
+            if (_currentToast == this)
+            {
+                _currentToast = null;
+            }
+        }
     }
 }
 
@@ -625,7 +1470,7 @@ public class SettingsForm : Form
         if (string.IsNullOrEmpty(newCat)) return;
         if (lstCategories.Items.Contains(newCat))
         {
-            MessageBox.Show("Category already exists.", "Duplicate", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ModernMessageBox.Show(this, "Category already exists.", "Duplicate Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         lstCategories.Items.Add(newCat);
@@ -686,15 +1531,26 @@ public class LogViewerForm : Form
 
     public LogViewerForm()
     {
-        InitializeComponent();
+        try
+        {
+            Program.LogLifecycle("LogViewerForm constructor started");
+            InitializeComponent();
+            Program.LogLifecycle("LogViewerForm InitializeComponent finished");
+        }
+        catch (Exception ex)
+        {
+            Program.LogLifecycle("LogViewerForm constructor ERROR: " + ex.ToString());
+            throw;
+        }
     }
 
     private void InitializeComponent()
     {
-        this.Text = "WhatsApp Photo Manager - Live Diagnostics & Logs";
+        this.Text = "WhatsApp Photo Manager - Control Center & Live Logs";
         this.Size = new Size(760, 520);
         this.StartPosition = FormStartPosition.CenterScreen;
         this.Icon = Program.AppIcon;
+        this.ShowInTaskbar = true;
         this.BackColor = UITheme.ConsoleDark;
 
         // Top Toolbar
@@ -768,22 +1624,32 @@ public class LogViewerForm : Form
 
     public void SetBotOnlineStatus(bool online)
     {
-        if (this.InvokeRequired)
+        if (this.IsDisposed) return;
+        try
         {
-            this.BeginInvoke(new Action<bool>(SetBotOnlineStatus), online);
-            return;
-        }
+            if (!this.IsHandleCreated)
+            {
+                this.CreateControl();
+            }
 
-        if (online)
-        {
-            lblStatus.Text = "● Bot Online & Running";
-            lblStatus.ForeColor = Color.FromArgb(74, 222, 128); // Green
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action<bool>(SetBotOnlineStatus), online);
+                return;
+            }
+
+            if (online)
+            {
+                lblStatus.Text = "● Bot Online & Running";
+                lblStatus.ForeColor = Color.FromArgb(74, 222, 128); // Green
+            }
+            else
+            {
+                lblStatus.Text = "○ Bot Offline (Stopped)";
+                lblStatus.ForeColor = Color.FromArgb(248, 113, 113); // Red
+            }
         }
-        else
-        {
-            lblStatus.Text = "○ Bot Offline (Stopped)";
-            lblStatus.ForeColor = Color.FromArgb(248, 113, 113); // Red
-        }
+        catch {}
     }
 
     private void BtnCopy_Click(object sender, EventArgs e)
@@ -812,7 +1678,7 @@ public class LogViewerForm : Form
         }
         else
         {
-            MessageBox.Show("No log file created yet.", "Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ModernMessageBox.Show(this, "No log file has been created yet.\nThe background bot will create bot_output.log once started.", "Logs Notice", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 
@@ -828,19 +1694,27 @@ public class LogViewerForm : Form
     public void AppendLog(string text)
     {
         if (this.IsDisposed) return;
-
-        if (this.InvokeRequired)
+        try
         {
-            this.BeginInvoke(new Action<string>(AppendLog), text);
-            return;
-        }
+            if (!this.IsHandleCreated)
+            {
+                this.CreateControl();
+            }
 
-        if (txtLog.TextLength > 500000)
-        {
-            txtLog.Text = txtLog.Text.Substring(200000);
-        }
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action<string>(AppendLog), text);
+                return;
+            }
 
-        txtLog.AppendText(text);
+            if (txtLog.TextLength > 500000)
+            {
+                txtLog.Text = txtLog.Text.Substring(200000);
+            }
+
+            txtLog.AppendText(text);
+        }
+        catch {}
     }
 }
 
@@ -866,6 +1740,8 @@ public class QrCodeForm : Form
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = true;
+        this.ShowInTaskbar = true;
+        this.TopMost = true;
         this.StartPosition = FormStartPosition.CenterScreen;
         this.BackColor = Color.FromArgb(248, 250, 252);
         this.Icon = Program.AppIcon;
@@ -1036,9 +1912,28 @@ public class QrCodeForm : Form
 
         try
         {
-            if (File.Exists(imagePath))
+            byte[] bytes = null;
+            for (int retry = 0; retry < 5; retry++)
             {
-                byte[] bytes = File.ReadAllBytes(imagePath);
+                try
+                {
+                    if (File.Exists(imagePath))
+                    {
+                        bytes = File.ReadAllBytes(imagePath);
+                        if (bytes != null && bytes.Length > 0)
+                        {
+                            break;
+                        }
+                    }
+                }
+                catch
+                {
+                    Thread.Sleep(60);
+                }
+            }
+
+            if (bytes != null && bytes.Length > 0)
+            {
                 using (MemoryStream ms = new MemoryStream(bytes))
                 {
                     using (Bitmap orig = new Bitmap(ms))
@@ -1076,6 +1971,7 @@ public class QrCodeForm : Form
         watcher = new FileSystemWatcher(dir, file);
         watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite;
         
+        watcher.Created += (s, e) => LoadQRImage();
         watcher.Changed += (s, e) => LoadQRImage();
         watcher.Deleted += (s, e) => {
             if (!this.IsDisposed)
@@ -1122,6 +2018,10 @@ public class TrayApplicationContext : ApplicationContext
     private QrCodeForm qrForm = null;
     private FileSystemWatcher qrWatcher;
 
+    private EventWaitHandle wakeEvent = null;
+    private EventWaitHandle pingEvent = null;
+    private Thread wakeThread = null;
+
     private string baseDir;
     private string configJsonPath;
     private string configJsPath;
@@ -1129,23 +2029,123 @@ public class TrayApplicationContext : ApplicationContext
 
     public TrayApplicationContext()
     {
-        baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        configJsonPath = Path.Combine(baseDir, "config.json");
-        configJsPath = Path.Combine(baseDir, "config.js");
+        try
+        {
+            Program.LogLifecycle("TrayApplicationContext constructor started");
+            baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            configJsonPath = Path.Combine(baseDir, "config.json");
+            configJsPath = Path.Combine(baseDir, "config.js");
+            Program.LogLifecycle("Step 1: Paths initialized");
 
-        logForm = new LogViewerForm();
+            logForm = new LogViewerForm();
+            IntPtr ensureHandle = logForm.Handle;
+            Program.LogLifecycle("Step 2: LogViewerForm created, Handle=" + ensureHandle);
 
-        InitializeTrayIcon();
-        StartQRWatcher();
+            InitializeTrayIcon();
+            Program.LogLifecycle("Step 3: TrayIcon initialized");
 
-        AppConfig config = AppConfig.Load(configJsonPath);
-        qrCodePath = Path.Combine(baseDir, "qr_code_" + config.SessionId + ".png");
+            StartWakeListener();
+            Program.LogLifecycle("Step 4: WakeListener started");
 
-        // Automatically start the bot silently
-        StartBot();
+            StartQRWatcher();
+            Program.LogLifecycle("Step 5: QRWatcher started");
 
-        // Show subtle notification to user that app is ready in tray
-        notifyIcon.ShowBalloonTip(3500, "WhatsApp Photo Manager", "Bot is running in your system tray. Right-click this icon for settings or logs.", ToolTipIcon.Info);
+            AppConfig config = AppConfig.Load(configJsonPath);
+            qrCodePath = Path.Combine(baseDir, "qr_code_" + config.SessionId + ".png");
+            Program.LogLifecycle("Step 6: Config loaded");
+
+            StartBot();
+            Program.LogLifecycle("Step 7: StartBot completed");
+
+            ShowLogs();
+
+            ModernToastNotification.Show(
+                "WhatsApp Photo Manager",
+                "Bot is running. Right-click the system tray icon anytime for settings.",
+                ToastType.Info,
+                () => ShowLogs()
+            );
+            Program.LogLifecycle("Step 8: Toast shown");
+            Program.LogLifecycle("TrayApplicationContext constructor finished");
+        }
+        catch (Exception ex)
+        {
+            Program.LogLifecycle("TrayApplicationContext constructor ERROR: " + ex.ToString());
+            throw;
+        }
+    }
+
+    private void StartWakeListener()
+    {
+        try
+        {
+            wakeEvent = new EventWaitHandle(false, EventResetMode.AutoReset, AlreadyRunningDialog.WAKE_EVENT_NAME);
+            pingEvent = new EventWaitHandle(false, EventResetMode.AutoReset, AlreadyRunningDialog.PING_EVENT_NAME);
+
+            wakeThread = new Thread(() => {
+                WaitHandle[] handles = new WaitHandle[] { wakeEvent, pingEvent };
+                while (true)
+                {
+                    try
+                    {
+                        int index = WaitHandle.WaitAny(handles);
+                        if (index == 0) // wakeEvent: Bring window to front
+                        {
+                            Program.LogLifecycle("WakeListener received wakeEvent! Bringing active window to foreground.");
+                            if (logForm != null && !logForm.IsDisposed)
+                            {
+                                logForm.BeginInvoke(new Action(() => {
+                                    if (qrForm != null && !qrForm.IsDisposed && qrForm.Visible)
+                                    {
+                                        WindowHelper.ForceForeground(qrForm);
+                                    }
+                                    else
+                                    {
+                                        ShowLogs();
+                                    }
+
+                                    ModernToastNotification.Show(
+                                        "WhatsApp Photo Manager",
+                                        "Application window restored to foreground.",
+                                        ToastType.Info,
+                                        () => ShowLogs()
+                                    );
+                                }));
+                            }
+                        }
+                        else if (index == 1) // pingEvent: Pulse notification
+                        {
+                            if (logForm != null && !logForm.IsDisposed)
+                            {
+                                logForm.BeginInvoke(new Action(() => {
+                                    ModernToastNotification.Show(
+                                        "WhatsApp Photo Manager",
+                                        "App is active right here in your system tray.",
+                                        ToastType.Info,
+                                        () => ShowLogs()
+                                    );
+                                }));
+                            }
+                        }
+                    }
+                    catch (ThreadAbortException)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine("Wake listener error: " + ex.Message);
+                        Thread.Sleep(1000);
+                    }
+                }
+            });
+            wakeThread.IsBackground = true;
+            wakeThread.Start();
+        }
+        catch (Exception ex)
+        {
+            Program.LogLifecycle("Failed to start wake listener: " + ex.Message);
+        }
     }
 
     private void InitializeTrayIcon()
@@ -1191,41 +2191,112 @@ public class TrayApplicationContext : ApplicationContext
     private void StartQRWatcher()
     {
         qrWatcher = new FileSystemWatcher(baseDir, "qr_code_*.png");
-        qrWatcher.NotifyFilter = NotifyFilters.FileName;
-        qrWatcher.Created += QrWatcher_Created;
+        qrWatcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size;
+        qrWatcher.Created += (s, e) => ShowQR(e.FullPath);
+        qrWatcher.Changed += (s, e) => ShowQR(e.FullPath);
         qrWatcher.Deleted += QrWatcher_Deleted;
         qrWatcher.EnableRaisingEvents = true;
     }
 
-    private void QrWatcher_Created(object sender, FileSystemEventArgs e)
+    private void ShowQR(string path = null)
     {
-        qrCodePath = e.FullPath;
-        logForm.AppendLog("[Bot Info] New QR code generated: " + e.Name + Environment.NewLine);
-        
-        this.logForm.BeginInvoke(new Action(() => {
-            menuQR.Enabled = true;
-            if (qrForm == null || qrForm.IsDisposed)
+        try
+        {
+            if (!string.IsNullOrEmpty(path))
             {
-                qrForm = new QrCodeForm(qrCodePath);
-                qrForm.Show();
-                qrForm.BringToFront();
+                qrCodePath = path;
             }
-        }));
+            if (string.IsNullOrEmpty(qrCodePath) || !File.Exists(qrCodePath))
+            {
+                AppConfig config = AppConfig.Load(configJsonPath);
+                string candidate = Path.Combine(baseDir, "qr_code_" + config.SessionId + ".png");
+                if (File.Exists(candidate))
+                {
+                    qrCodePath = candidate;
+                }
+                else
+                {
+                    string fallback = Path.Combine(baseDir, "qr_code.png");
+                    if (File.Exists(fallback))
+                    {
+                        qrCodePath = fallback;
+                    }
+                }
+            }
+
+            if (!File.Exists(qrCodePath)) return;
+
+            logForm.AppendLog("[Bot Info] Displaying WhatsApp QR Code: " + Path.GetFileName(qrCodePath) + Environment.NewLine);
+
+            if (logForm != null && logForm.IsHandleCreated && !logForm.IsDisposed)
+            {
+                logForm.BeginInvoke(new Action(() => {
+                    menuQR.Enabled = true;
+                    if (qrForm == null || qrForm.IsDisposed)
+                    {
+                        qrForm = new QrCodeForm(qrCodePath);
+                    }
+                    WindowHelper.ForceForeground(qrForm);
+                }));
+            }
+        }
+        catch {}
+    }
+
+    private bool hasShownConnectedToast = false;
+
+    private void CheckForQrDismissal(string line)
+    {
+        if (string.IsNullOrEmpty(line)) return;
+
+        bool isAuthEvent = line.Contains("QR code scanned") ||
+                           line.Contains("Loading your chats") ||
+                           line.Contains("Loading session") ||
+                           line.Contains("Authenticated") ||
+                           line.Contains("Client is ready") ||
+                           line.Contains("Main account:") ||
+                           line.Contains("Authentication complete");
+
+        if (isAuthEvent)
+        {
+            DismissQrAndNotifyConnected();
+        }
+    }
+
+    private void DismissQrAndNotifyConnected()
+    {
+        try
+        {
+            if (logForm != null && logForm.IsHandleCreated && !logForm.IsDisposed)
+            {
+                logForm.BeginInvoke(new Action(() => {
+                    menuQR.Enabled = false;
+                    if (qrForm != null && !qrForm.IsDisposed)
+                    {
+                        qrForm.Close();
+                        qrForm = null;
+                    }
+
+                    if (!hasShownConnectedToast)
+                    {
+                        hasShownConnectedToast = true;
+                        ModernToastNotification.Show(
+                            "WhatsApp Connected",
+                            "Your WhatsApp account was successfully linked! Photo Manager is active.",
+                            ToastType.Success,
+                            () => ShowLogs()
+                        );
+                    }
+                }));
+            }
+        }
+        catch {}
     }
 
     private void QrWatcher_Deleted(object sender, FileSystemEventArgs e)
     {
         logForm.AppendLog("[Bot Info] WhatsApp linked successfully. QR code removed." + Environment.NewLine);
-        
-        this.logForm.BeginInvoke(new Action(() => {
-            menuQR.Enabled = false;
-            if (qrForm != null && !qrForm.IsDisposed)
-            {
-                qrForm.Close();
-                qrForm = null;
-            }
-            notifyIcon.ShowBalloonTip(4000, "WhatsApp Connected", "Your WhatsApp account was successfully linked! Photo Manager is active.", ToolTipIcon.Info);
-        }));
+        DismissQrAndNotifyConnected();
     }
 
     private void ToggleBot_Click(object sender, EventArgs e)
@@ -1248,19 +2319,20 @@ public class TrayApplicationContext : ApplicationContext
         if (!File.Exists(nodePath))
         {
             logForm.AppendLog("[Error] node.exe not found at: " + nodePath + Environment.NewLine);
-            MessageBox.Show("Could not find portable node.exe in the installation folder.", "Error Starting Bot", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ModernMessageBox.Show("Could not find portable node.exe in the installation folder.", "Error Starting Bot", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
 
         if (!File.Exists(scriptPath))
         {
             logForm.AppendLog("[Error] App script not found at: " + scriptPath + Environment.NewLine);
-            MessageBox.Show("Could not find application script at: app/dist/index.js.\nEnsure the project is correctly built.", "Error Starting Bot", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ModernMessageBox.Show("Could not find application script at: app/dist/index.js.\nEnsure the project is correctly built.", "Error Starting Bot", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
 
         AppConfig config = AppConfig.Load(configJsonPath);
         qrCodePath = Path.Combine(baseDir, "qr_code_" + config.SessionId + ".png");
+        hasShownConnectedToast = false;
 
         logForm.AppendLog("[System] Starting WhatsApp Photo Manager bot..." + Environment.NewLine);
 
@@ -1274,6 +2346,7 @@ public class TrayApplicationContext : ApplicationContext
         startInfo.RedirectStandardError = true;
         startInfo.StandardOutputEncoding = Encoding.UTF8;
         startInfo.StandardErrorEncoding = Encoding.UTF8;
+        startInfo.EnvironmentVariables["PATH"] = baseDir + ";" + Environment.GetEnvironmentVariable("PATH");
 
         try
         {
@@ -1310,7 +2383,7 @@ public class TrayApplicationContext : ApplicationContext
         catch (Exception ex)
         {
             logForm.AppendLog("[Error] Failed to start process: " + ex.Message + Environment.NewLine);
-            MessageBox.Show("Failed to launch background Node process: " + ex.Message, "Error Starting Bot", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ModernMessageBox.Show("Failed to launch background Node process: " + ex.Message, "Error Starting Bot", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1341,22 +2414,40 @@ public class TrayApplicationContext : ApplicationContext
 
     private void BotProcess_Exited(object sender, EventArgs e)
     {
-        logForm.AppendLog("[System] Bot process has stopped." + Environment.NewLine);
+        try
+        {
+            logForm.AppendLog("[System] Bot process has stopped." + Environment.NewLine);
+        }
+        catch {}
         botProcess = null;
 
-        logForm.BeginInvoke(new Action(() => {
-            menuStatus.Text = "Status: Stopped";
-            menuToggle.Text = "Start Bot";
-            menuQR.Enabled = false;
-            notifyIcon.Text = "WhatsApp Photo Manager v1.0.0 - Bot is offline";
-            logForm.SetBotOnlineStatus(false);
-            
-            if (qrForm != null && !qrForm.IsDisposed)
+        try
+        {
+            if (logForm != null && logForm.IsHandleCreated && !logForm.IsDisposed)
             {
-                qrForm.Close();
-                qrForm = null;
+                logForm.BeginInvoke(new Action(UpdateBotStoppedUI));
             }
-        }));
+            else
+            {
+                UpdateBotStoppedUI();
+            }
+        }
+        catch {}
+    }
+
+    private void UpdateBotStoppedUI()
+    {
+        menuStatus.Text = "Status: Stopped";
+        menuToggle.Text = "Start Bot";
+        menuQR.Enabled = false;
+        notifyIcon.Text = "WhatsApp Photo Manager v1.0.0 - Bot is offline";
+        logForm.SetBotOnlineStatus(false);
+        
+        if (qrForm != null && !qrForm.IsDisposed)
+        {
+            qrForm.Close();
+            qrForm = null;
+        }
     }
 
     private string CleanAnsiCodes(string line)
@@ -1383,6 +2474,11 @@ public class TrayApplicationContext : ApplicationContext
                     line = CleanAnsiCodes(line);
                     if (IsQrOrTableArt(line)) continue;
 
+                    CheckForQrDismissal(line);
+                    if (line.Contains("QR code saved as:") || line.Contains("qr_code"))
+                    {
+                        ShowQR();
+                    }
                     logForm.AppendLog(line + Environment.NewLine);
                     
                     try
@@ -1408,21 +2504,39 @@ public class TrayApplicationContext : ApplicationContext
                     line = CleanAnsiCodes(line);
                     if (IsQrOrTableArt(line)) continue;
 
-                    // wa-automate outputs internal injection/timing lines to stderr.
-                    // Clean up misleading "[Error]" prefixes if it is simply telemetry.
+                    CheckForQrDismissal(line);
+                    if (line.Contains("First QR") || line.Contains("Authenticate to continue"))
+                    {
+                        ShowQR();
+                    }
+
+                    // wa-automate outputs internal lifecycle & telemetry lines to stderr.
+                    // Only label as [Error] if it is an actual error/exception.
                     string formatted;
-                    if (line.Contains("Launch inject:") || line.Contains("Page loaded in") || 
-                        line.Contains("Use this easy") || line.Contains("Time to inject") || 
-                        line.Contains("WAPI injected") || line.Contains("First QR") ||
-                        line.Contains("Found require") || line.Contains("Injecting") ||
-                        line.Contains("Base inject") || line.Contains("labels=MD") ||
-                        line.Contains("AUTHENTICATED") || line.Contains("STARTING"))
+                    string lower = line.ToLowerInvariant();
+                    bool isRealError = lower.Contains("error:") || 
+                                       lower.Contains("exception:") || 
+                                       lower.Contains("unhandled") || 
+                                       lower.Contains("fatal") || 
+                                       lower.Contains("err_") || 
+                                       lower.Contains("failed to");
+
+                    if (isRealError)
+                    {
+                        formatted = "[Error] " + line + Environment.NewLine;
+                    }
+                    else if (line.Contains("Launch inject:") || line.Contains("Page loaded in") || 
+                             line.Contains("Use this easy") || line.Contains("Time to inject") || 
+                             line.Contains("WAPI injected") || line.Contains("First QR") ||
+                             line.Contains("Found require") || line.Contains("Injecting") ||
+                             line.Contains("Base inject") || line.Contains("labels=MD") ||
+                             line.Contains("AUTHENTICATED") || line.Contains("STARTING"))
                     {
                         formatted = "[Diagnostics] " + line + Environment.NewLine;
                     }
                     else
                     {
-                        formatted = "[Error] " + line + Environment.NewLine;
+                        formatted = "[Info] " + line.TrimStart('-', ' ') + Environment.NewLine;
                     }
 
                     logForm.AppendLog(formatted);
@@ -1473,33 +2587,16 @@ public class TrayApplicationContext : ApplicationContext
 
     private void ShowLogs()
     {
-        if (logForm.Visible)
-        {
-            logForm.Activate();
-        }
-        else
-        {
-            logForm.Show();
-        }
+        if (logForm == null || logForm.IsDisposed) return;
+        WindowHelper.ForceForeground(logForm);
     }
 
     private void QR_Click(object sender, EventArgs e)
     {
-        if (File.Exists(qrCodePath))
+        ShowQR();
+        if (qrForm == null || !qrForm.Visible)
         {
-            if (qrForm == null || qrForm.IsDisposed)
-            {
-                qrForm = new QrCodeForm(qrCodePath);
-                qrForm.Show();
-            }
-            else
-            {
-                qrForm.Activate();
-            }
-        }
-        else
-        {
-            MessageBox.Show("No active QR code waiting for scan.\nIf the bot is already authenticated or starting up, the QR code is not needed.", "Device Already Linked", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ModernMessageBox.Show("No active QR code waiting for scan.\nIf the bot is already authenticated or starting up, the QR code is not needed.", "Device Already Linked", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 
@@ -1523,7 +2620,7 @@ public class TrayApplicationContext : ApplicationContext
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Could not open downloads directory: " + ex.Message, "Error Opening Folder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ModernMessageBox.Show("Could not open downloads directory: " + ex.Message, "Error Opening Folder", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1535,6 +2632,22 @@ public class TrayApplicationContext : ApplicationContext
     private void ExitApp()
     {
         StopBot();
+
+        if (wakeThread != null)
+        {
+            try { wakeThread.Abort(); } catch {}
+            wakeThread = null;
+        }
+        if (wakeEvent != null)
+        {
+            try { wakeEvent.Close(); } catch {}
+            wakeEvent = null;
+        }
+        if (pingEvent != null)
+        {
+            try { pingEvent.Close(); } catch {}
+            pingEvent = null;
+        }
         
         if (qrWatcher != null)
         {
@@ -1550,6 +2663,18 @@ public class TrayApplicationContext : ApplicationContext
 
         Application.Exit();
     }
+
+    protected override void OnMainFormClosed(object sender, EventArgs e)
+    {
+        // Prevent WinForms from terminating the ApplicationContext when a toast or dialog closes
+        Program.LogLifecycle("OnMainFormClosed invoked for: " + (sender != null ? sender.GetType().Name : "null") + " (ignored to keep tray app alive)");
+    }
+
+    protected override void ExitThreadCore()
+    {
+        Program.LogLifecycle("ExitThreadCore invoked:\n" + Environment.StackTrace);
+        base.ExitThreadCore();
+    }
 }
 
 public static class Program
@@ -1562,7 +2687,12 @@ public static class Program
         {
             try
             {
-                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app-logo.ico");
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string path = Path.Combine(baseDir, "app-logo.ico");
+                if (!File.Exists(path))
+                {
+                    path = Path.Combine(baseDir, "assets", "app-logo.ico");
+                }
                 if (File.Exists(path))
                 {
                     return new Icon(path);
@@ -1584,34 +2714,67 @@ public static class Program
         }
     }
 
+    private static readonly object _logLock = new object();
+    public static void LogLifecycle(string msg)
+    {
+        try
+        {
+            lock (_logLock)
+            {
+                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app_lifecycle.log");
+                File.AppendAllText(path, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + msg + Environment.NewLine);
+            }
+        }
+        catch {}
+    }
+
     [STAThread]
     public static void Main()
     {
         try
         {
-            bool createdNew;
-            mutex = new Mutex(true, "Local\\WhatsAppPhotoManagerTrayAppMutex", out createdNew);
+            LogLifecycle("Entered Main");
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+
+            Application.ThreadException += (s, ev) => {
+                LogLifecycle("ThreadException: " + ev.Exception.ToString());
+            };
+            AppDomain.CurrentDomain.UnhandledException += (s, ev) => {
+                LogLifecycle("UnhandledException: " + ev.ExceptionObject.ToString());
+            };
+            AppDomain.CurrentDomain.ProcessExit += (s, ev) => {
+                LogLifecycle("ProcessExit fired:\n" + Environment.StackTrace);
+            };
+
+            bool createdNew = false;
+            try
+            {
+                mutex = new Mutex(true, "Local\\WhatsAppPhotoManagerTrayAppMutex", out createdNew);
+            }
+            catch (AbandonedMutexException)
+            {
+                createdNew = true;
+            }
+
+            LogLifecycle("Mutex checked, createdNew=" + createdNew);
 
             if (!createdNew)
             {
-                MessageBox.Show("WhatsApp Photo Manager is already running in the system tray.", "Already Running", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LogLifecycle("Another instance already running. Signaling primary instance to restore window.");
+                AlreadyRunningDialog.SignalPrimaryWake();
+                Thread.Sleep(300);
                 return;
             }
 
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            
+            LogLifecycle("Calling Application.Run(new TrayApplicationContext())");
             Application.Run(new TrayApplicationContext());
+            LogLifecycle("Application.Run returned normally.");
         }
         catch (Exception ex)
         {
-            try
-            {
-                string log = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup_error.log");
-                File.AppendAllText(log, "[" + DateTime.Now + "] " + ex.ToString() + Environment.NewLine);
-            }
-            catch {}
-            MessageBox.Show("Fatal Startup Error:\n" + ex.Message, "WhatsApp Photo Manager Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            LogLifecycle("Catch in Main: " + ex.ToString());
+            ModernMessageBox.Show("Fatal Startup Error:\n" + ex.Message, "WhatsApp Photo Manager Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

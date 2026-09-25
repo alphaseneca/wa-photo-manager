@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-emerald.svg" alt="Version 1.0.0" />
+  <img src="https://img.shields.io/badge/version-1.1.0-emerald.svg" alt="Version 1.1.0" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Node.js-blue.svg" alt="Platform" />
-  <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg" alt="Node.js Requirement" />
+  <img src="https://img.shields.io/badge/node-%3E%3D20.9.0-brightgreen.svg" alt="Node.js Requirement" />
   <img src="https://img.shields.io/badge/license-MIT-purple.svg" alt="License" />
-  <img src="https://img.shields.io/badge/tests-16%20passed-success.svg" alt="Test Status" />
+  <img src="https://img.shields.io/badge/tests-17%20passed-success.svg" alt="Test Status" />
 </p>
 
 ---
@@ -91,7 +91,7 @@ flowchart TD
 ### Option 2: Developer & Server Setup (Node.js)
 
 #### Prerequisites
-- **Node.js**: `v18.0.0` or higher
+- **Node.js**: `v20.9.0` or higher (LTS recommended)
 - **npm**: `v9.0.0` or higher
 - **Git**
 
@@ -252,7 +252,7 @@ installer/WhatsAppPhotoManager-Installer-1.0.0-x64.exe
 
 The repository includes pre-configured GitHub Actions workflows in [`.github/workflows/`](.github/workflows/):
 
-- **Continuous Integration (`ci.yml`)**: Automatically triggers on all pushes and pull requests across Ubuntu and Windows environments with Node.js 18, 20, and 22. Runs TypeScript builds and automated test suites.
+- **Continuous Integration (`ci.yml`)**: Automatically triggers on all pushes and pull requests across Ubuntu and Windows environments with Node.js 20, 22, and 24. Runs TypeScript builds and automated test suites.
 - **Automated Release (`release.yml`)**: Triggers on version tag pushes (`v*.*.*`). Assembles the standalone package on Windows, compiles the Inno Setup installer, and publishes a new GitHub Release with attached binaries.
 
 ---

@@ -43,6 +43,10 @@ test('Build & Packaging Integrity Suite', async (t) => {
         assert.ok(fs.existsSync(tsconfigPath), 'tsconfig.json must exist');
 
         const distEntry = path.join(rootDir, 'dist', 'index.js');
+        if (!fs.existsSync(distEntry)) {
+            const { execSync } = require('node:child_process');
+            execSync('npm run build', { cwd: rootDir, stdio: 'pipe' });
+        }
         assert.ok(fs.existsSync(distEntry), 'dist/index.js must exist after build');
     });
 

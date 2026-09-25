@@ -70,6 +70,7 @@ Copy-Item -Path (Join-Path $workspaceDir "dist") -Destination (Join-Path $appDes
 Copy-Item -Path (Join-Path $workspaceDir "package.json") -Destination (Join-Path $appDestDir "app\package.json") -Force
 Copy-Item -Path (Join-Path $workspaceDir "config.js") -Destination (Join-Path $appDestDir "config.js") -Force
 Copy-Item -Path (Join-Path $workspaceDir "README.md") -Destination (Join-Path $appDestDir "README.md") -Force
+Copy-Item -Path (Join-Path $workspaceDir "LICENSE") -Destination (Join-Path $appDestDir "LICENSE") -Force
 Copy-Item -Path (Join-Path $workspaceDir "assets\app-logo.ico") -Destination (Join-Path $appDestDir "app-logo.ico") -Force
 Copy-Item -Path (Join-Path $workspaceDir "assets\app-logo.png") -Destination (Join-Path $appDestDir "app-logo.png") -Force
 # Create empty downloads folder if missing

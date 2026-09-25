@@ -27,8 +27,8 @@ npm run build
 # 3. Download Portable Node.js Executable (if not already downloaded)
 $nodeDest = Join-Path $appDestDir "node.exe"
 if (-not (Test-Path $nodeDest)) {
-    Write-Host "[3/7] Downloading portable node.exe (LTS v20)..." -ForegroundColor Yellow
-    $nodeUrl = "https://nodejs.org/dist/v20.12.2/win-x64/node.exe"
+    Write-Host "[3/7] Downloading portable node.exe (v24.21.0)..." -ForegroundColor Yellow
+    $nodeUrl = "https://nodejs.org/dist/v24.21.0/win-x64/node.exe"
     Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeDest
     Write-Host "[+] node.exe downloaded successfully." -ForegroundColor Green
 } else {
